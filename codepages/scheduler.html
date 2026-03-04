@@ -44,7 +44,7 @@
   }
   .resource-list { flex: 1; overflow-y: auto; overflow-x: hidden; }
 
-  .pod-group { border-bottom: 1px solid var(--border); }
+  .pod-group { }
   .pod-header-label {
     display: flex;
     align-items: center;
@@ -130,6 +130,7 @@
   .timeline-row {
     position: relative;
     height: var(--row-h);
+    box-sizing: border-box;
     border-bottom: 1px solid rgba(42,45,58,0.3);
   }
   .timeline-row.pod-header-row { height: var(--row-h); background: var(--surface2); }
@@ -349,30 +350,26 @@ function renderTimeline() {
   const today = formatDate(new Date());
   const styles = getComputedStyle(document.documentElement);
   const cellW = parseInt(styles.getPropertyValue('--cell-w'));
-  const rowH = parseInt(styles.getPropertyValue('--row-h'));
   const totalW = viewDays * cellW;
-  let html = '';
 
-  // Grid columns
+  // Background: grid columns (absolute positioned)
+  let bgHtml = '';
   for (let i=0; i<viewDays; i++) {
     const d = addDays(viewStart, i), ds = formatDate(d);
     const isWe = d.getDay()===0||d.getDay()===6;
-    html += `<div class="grid-col ${isWe?'weekend':''} ${ds===today?'today-col':''}" style="left:${i*cellW}px"></div>`;
+    bgHtml += `<div class="grid-col ${isWe?'weekend':''} ${ds===today?'today-col':''}" style="left:${i*cellW}px"></div>`;
   }
-
-  // Today line
   const todayDate = new Date(); todayDate.setHours(0,0,0,0);
   const todayOff = Math.round((todayDate - viewStart)/86400000);
-  if (todayOff>=0 && todayOff<viewDays) html += `<div class="today-line" style="left:${todayOff*cellW+cellW/2}px"></div>`;
+  if (todayOff>=0 && todayOff<viewDays) bgHtml += `<div class="today-line" style="left:${todayOff*cellW+cellW/2}px"></div>`;
 
-  // Rows
-  let rowIdx = 0;
+  // Foreground: rows (FLOW layout — matches resource panel exactly)
+  let rowsHtml = '';
   for (const [pod, members] of Object.entries(groups)) {
-    html += `<div class="timeline-row pod-header-row" style="top:${rowIdx*rowH}px;width:${totalW}px"></div>`;
-    rowIdx++;
+    rowsHtml += `<div class="timeline-row pod-header-row" style="width:${totalW}px"></div>`;
     if (!collapsedPods.has(pod)) {
       members.forEach(m => {
-        html += `<div class="timeline-row" style="top:${rowIdx*rowH}px;width:${totalW}px">`;
+        rowsHtml += `<div class="timeline-row" style="width:${totalW}px">`;
         assignments.filter(a => a.personKey === m.tdId).forEach(a => {
           const aStart = parseDate(a.start), aEnd = parseDate(a.end);
           if (!aStart||!aEnd) return;
@@ -384,19 +381,17 @@ function renderTimeline() {
           const pri = a.priority==='High'?'priority-high':'';
           const we = a.weekend?'weekend-bar':'';
           const label = a.projectNum ? String(a.projectNum) : (a.projectName||'').slice(0,20);
-          const desc = a.desc && width>80 ? ' · '+a.desc : '';
-          html += `<div class="gantt-bar ${pri} ${we}" style="left:${left}px;width:${width}px;background:${color}"
+          const desc = a.desc && width>80 ? ' \u00b7 '+a.desc : '';
+          rowsHtml += `<div class="gantt-bar ${pri} ${we}" style="left:${left}px;width:${width}px;background:${color}"
             onmouseenter="showTip(event,${a.id})" onmouseleave="hideTip()">
             <span class="bar-text">${escapeHtml(label+desc)}</span></div>`;
         });
-        html += `</div>`;
-        rowIdx++;
+        rowsHtml += `</div>`;
       });
     }
   }
   grid.style.width = totalW+'px';
-  grid.style.height = (rowIdx*rowH)+'px';
-  grid.innerHTML = html;
+  grid.innerHTML = bgHtml + rowsHtml;
 
   const uniqProj = new Set(assignments.map(a=>a.projectId));
   document.getElementById('statCount').textContent = assignments.length;
