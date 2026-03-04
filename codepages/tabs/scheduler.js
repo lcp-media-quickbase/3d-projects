@@ -83,6 +83,26 @@ var schedulerCSS = `
   .btn-danger { background:var(--danger-dim); color:var(--danger); border-color:var(--danger); }
   .btn-danger:hover { background:var(--danger); color:#fff; }
 
+  .now-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--danger);
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .now-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    background: var(--danger);
+    border-radius: 50%;
+  }
   #tooltip { position:fixed; z-index:100; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:12px; color:var(--text); pointer-events:none; box-shadow:0 8px 30px rgba(0,0,0,0.5); opacity:0; transition:opacity 0.15s; max-width:280px; }
   #tooltip.visible { opacity:1; }
   #tooltip .tip-title { font-weight:600; margin-bottom:4px; }
@@ -247,6 +267,16 @@ function renderTimeline() {
     bgHtml += '<div class="'+cls+'" style="left:'+(i*cellW)+'px;width:'+cellW+'px"></div>';
   }
 
+  // Now line
+  var now = new Date();
+  var nowDay = Math.floor((now - viewStart) / 86400000);
+  var nowLine = '';
+  if (nowDay >= 0 && nowDay < viewDays) {
+    var hours = now.getHours() + now.getMinutes() / 60;
+    var nowX = (nowDay + hours / 24) * cellW;
+    nowLine = '<div class="now-line" style="left:' + nowX + 'px"></div>';
+  }
+
   var rowsHtml = '';
   for (var pod in groups) {
     var members = groups[pod];
@@ -288,7 +318,7 @@ function renderTimeline() {
     }
   }
   grid.style.width = totalW+'px';
-  grid.innerHTML = bgHtml + rowsHtml;
+  grid.innerHTML = bgHtml + nowLine + rowsHtml;
 }
 
 // ─── INTERACTIONS ─────────────────────────────────────────────
