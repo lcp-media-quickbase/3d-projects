@@ -17,18 +17,30 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0f1117}
 var PAGE = 'leave.html';
 var REPO = 'lcp-media-quickbase/3d-projects';
 
-// Step 1: Get latest tag from GitHub API
+function fetchWithRetry(url, retries, delay) {
+  return fetch(url).then(function(r) {
+    if (!r.ok) {
+      if (retries > 0) {
+        return new Promise(function(res) { setTimeout(res, delay); })
+          .then(function() { return fetchWithRetry(url, retries - 1, delay * 2); });
+      }
+      throw new Error(url.split('/').pop() + ' returned ' + r.status);
+    }
+    return r;
+  });
+}
+
 fetch('https://api.github.com/repos/' + REPO + '/tags?per_page=1')
   .then(function(r) { return r.json(); })
   .then(function(tags) {
     var version = (tags && tags[0]) ? tags[0].name : 'main';
     var cdn = 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + version + '/codepages';
+    document.getElementById('loader').lastChild.textContent = 'Loading ' + version + '...';
 
-    // Step 2: Load all files from tagged CDN URL
     return Promise.all([
-      fetch(cdn + '/shared.css').then(function(r) { return r.text(); }),
-      fetch(cdn + '/shared.js').then(function(r) { return r.text(); }),
-      fetch(cdn + '/' + PAGE).then(function(r) { return r.text(); })
+      fetchWithRetry(cdn + '/shared.css', 2, 1000).then(function(r) { return r.text(); }),
+      fetchWithRetry(cdn + '/shared.js', 2, 1000).then(function(r) { return r.text(); }),
+      fetchWithRetry(cdn + '/' + PAGE, 2, 1000).then(function(r) { return r.text(); })
     ]);
   })
   .then(function(results) {
@@ -78,7 +90,7 @@ fetch('https://api.github.com/repos/' + REPO + '/tags?per_page=1')
   }).catch(function(e) {
     document.getElementById('loader').innerHTML =
       '<div style="color:#ff4757;font-size:14px">Failed to load: ' + e.message + '</div>' +
-      '<div style="color:#565a6e;font-size:12px;margin-top:8px">Source: github.com/' + REPO + '</div>';
+      '<div style="color:#565a6e;font-size:12px;margin-top:8px">Try refreshing (Ctrl+Shift+R). Source: github.com/' + REPO + '</div>';
   });
 </script>
 </body>
