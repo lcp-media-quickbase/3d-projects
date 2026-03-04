@@ -15,18 +15,12 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0f1117}
 <div class="loader" id="loader"><div class="spinner"></div>Loading...</div>
 <script>
 var REPO = 'lcp-media-quickbase/3d-projects';
-var FILES = ['shared.css', 'shared.js', 'dashboard.html',
-  'tabs/scheduler.js', 'tabs/vacations.js', 'tabs/preproduction.js',
-  'tabs/quotes.js', 'tabs/reports.js', 'tabs/timesheets.js', 'tabs/admin.js'];
 
-function fetchWithRetry(url, retries, delay) {
+function fetchRetry(url, n, d) {
   return fetch(url).then(function(r) {
     if (!r.ok) {
-      if (retries > 0) {
-        return new Promise(function(res) { setTimeout(res, delay); })
-          .then(function() { return fetchWithRetry(url, retries - 1, delay * 2); });
-      }
-      throw new Error(url.split('/').pop() + ' returned ' + r.status);
+      if (n > 0) return new Promise(function(ok){setTimeout(ok,d);}).then(function(){return fetchRetry(url,n-1,d*2);});
+      throw new Error(url.split('/').pop() + ' ' + r.status);
     }
     return r;
   });
@@ -35,83 +29,68 @@ function fetchWithRetry(url, retries, delay) {
 fetch('https://api.github.com/repos/' + REPO + '/tags?per_page=1')
   .then(function(r) { return r.json(); })
   .then(function(tags) {
-    var version = (tags && tags[0]) ? tags[0].name : 'main';
-    var cdn = 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + version + '/codepages';
-    document.getElementById('loader').lastChild.textContent = 'Loading ' + version + '...';
-
-    return Promise.all(FILES.map(function(f) {
-      return fetchWithRetry(cdn + '/' + f, 2, 1000).then(function(r) { return r.text(); });
-    }));
+    var v = (tags && tags[0]) ? tags[0].name : 'main';
+    window._cdnBase = 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + v + '/codepages';
+    document.getElementById('loader').lastChild.textContent = 'Loading ' + v + '...';
+    return Promise.all([
+      fetchRetry(window._cdnBase + '/shared.css', 2, 1000).then(function(r){return r.text();}),
+      fetchRetry(window._cdnBase + '/shared.js', 2, 1000).then(function(r){return r.text();}),
+      fetchRetry(window._cdnBase + '/dashboard.html', 2, 1000).then(function(r){return r.text();})
+    ]);
   })
-  .then(function(results) {
-    var css = results[0];       // shared.css
-    var sharedJs = results[1];  // shared.js
-    var dashHtml = results[2];  // dashboard.html
-    var tabScripts = results.slice(3); // tab JS files
-
-    // Parse dashboard.html
+  .then(function(res) {
+    var css = res[0], js = res[1], html = res[2];
     var parser = new DOMParser();
-    var doc = parser.parseFromString(dashHtml, 'text/html');
+    var doc = parser.parseFromString(html, 'text/html');
 
-    // Extract page-level styles
-    var pageStyles = '';
-    doc.querySelectorAll('style').forEach(function(s) { pageStyles += s.outerHTML; });
+    // Extract styles
+    var ps = ''; doc.querySelectorAll('style').forEach(function(s){ps += s.outerHTML;});
 
-    // Extract body content (without scripts)
-    var bodyContent = doc.body.innerHTML;
+    // Extract body without scripts
     var tmp = document.createElement('div');
-    tmp.innerHTML = bodyContent;
-    tmp.querySelectorAll('script').forEach(function(s) { s.remove(); });
-    bodyContent = tmp.innerHTML;
+    tmp.innerHTML = doc.body.innerHTML;
+    tmp.querySelectorAll('script').forEach(function(s){s.remove();});
 
-    // Extract inline scripts from dashboard.html
-    var inlineScripts = [];
-    doc.body.querySelectorAll('script:not([src])').forEach(function(s) {
-      inlineScripts.push(s.textContent);
-    });
+    // Extract inline scripts
+    var scripts = [];
+    doc.body.querySelectorAll('script:not([src])').forEach(function(s){scripts.push(s.textContent);});
 
-    // Build the page
+    // Extract script[src] for dynamic loading
+    var srcScripts = [];
+    doc.body.querySelectorAll('script[src]').forEach(function(s){srcScripts.push(s.getAttribute('src'));});
+
+    // Build page
     document.getElementById('loader').remove();
+    var el = document.createElement('style'); el.textContent = css; document.head.appendChild(el);
+    if (ps) document.head.insertAdjacentHTML('beforeend', ps);
+    document.body.innerHTML = tmp.innerHTML;
 
-    // 1. CSS
-    var styleEl = document.createElement('style');
-    styleEl.textContent = css;
-    document.head.appendChild(styleEl);
-    if (pageStyles) document.head.insertAdjacentHTML('beforeend', pageStyles);
+    // Run shared.js
+    var s1 = document.createElement('script'); s1.textContent = js; document.body.appendChild(s1);
 
-    // 2. Body content
-    document.body.innerHTML = bodyContent;
+    // Run first inline script (bootstrap)
+    if (scripts[0]) { var s2 = document.createElement('script'); s2.textContent = scripts[0]; document.body.appendChild(s2); }
 
-    // 3. shared.js (must run first — provides globals)
-    var s1 = document.createElement('script');
-    s1.textContent = sharedJs;
-    document.body.appendChild(s1);
-
-    // 4. First inline script (bootstrap — initAuth, detectRole, registerTab setup)
-    if (inlineScripts[0]) {
-      var s2 = document.createElement('script');
-      s2.textContent = inlineScripts[0];
-      document.body.appendChild(s2);
-    }
-
-    // 5. Tab scripts
-    tabScripts.forEach(function(code) {
-      var s = document.createElement('script');
-      s.textContent = code;
-      document.body.appendChild(s);
+    // Dynamically fetch and run all script[src] from CDN
+    var chain = Promise.resolve();
+    srcScripts.forEach(function(src) {
+      chain = chain.then(function() {
+        return fetchRetry(window._cdnBase + '/' + src, 2, 1000).then(function(r){return r.text();});
+      }).then(function(code) {
+        var s = document.createElement('script'); s.textContent = code; document.body.appendChild(s);
+      });
     });
 
-    // 6. Remaining inline scripts (buildDashboard call)
-    for (var i = 1; i < inlineScripts.length; i++) {
-      var s = document.createElement('script');
-      s.textContent = inlineScripts[i];
-      document.body.appendChild(s);
-    }
-
+    // After all tab scripts loaded, run remaining inline scripts (buildDashboard)
+    return chain.then(function() {
+      for (var i = 1; i < scripts.length; i++) {
+        var s = document.createElement('script'); s.textContent = scripts[i]; document.body.appendChild(s);
+      }
+    });
   }).catch(function(e) {
     document.getElementById('loader').innerHTML =
       '<div style="color:#ff4757;font-size:14px">Failed to load: ' + e.message + '</div>' +
-      '<div style="color:#565a6e;font-size:12px;margin-top:8px">Try refreshing (Ctrl+Shift+R). Source: github.com/' + REPO + '</div>';
+      '<div style="color:#565a6e;font-size:12px;margin-top:8px">Try refreshing (Ctrl+Shift+R)</div>';
   });
 </script>
 </body>
