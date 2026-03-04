@@ -45,12 +45,15 @@ Promise.all([
   doc.body.querySelectorAll('script:not([src])').forEach(function(s){scripts.push(s.textContent);});
 
   var srcScripts = [];
-  doc.body.querySelectorAll('script[src]').forEach(function(s){srcScripts.push(s.getAttribute('src'));});
+  doc.body.querySelectorAll('script[src]').forEach(function(s){
+    var src = s.getAttribute('src');
+    if (src !== 'shared.js') srcScripts.push(src);
+  });
 
   document.getElementById('loader').remove();
   var el = document.createElement('style'); el.textContent = css; document.head.appendChild(el);
   if (ps) document.head.insertAdjacentHTML('beforeend', ps);
-  document.body.innerHTML = tmp.innerHTML;
+  document.body.innerHTML = '';
 
   var s1 = document.createElement('script'); s1.textContent = js; document.body.appendChild(s1);
   if (scripts[0]) { var s2 = document.createElement('script'); s2.textContent = scripts[0]; document.body.appendChild(s2); }
