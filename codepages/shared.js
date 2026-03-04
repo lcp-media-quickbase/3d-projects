@@ -35,7 +35,7 @@ var FIELD = {
 
 var POD_COLORS = {
   'Max POD':'#ff6b6b', 'Polina POD':'#ffa94d', 'Grzegorz POD':'#69db7c',
-  'Evgeniy POD':'#6c8cff', 'George POD':'#cc5de8', 'Polish office':'#868e96',
+  'Evgeniy POD':'#68B6E5', 'George POD':'#cc5de8', 'Polish office':'#868e96',
   'TourBuilder':'#20c997'
 };
 

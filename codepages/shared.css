@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
    LCP 3D Resource Manager — Shared Design System
    ═══════════════════════════════════════════════════════════ */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.cdnfonts.com/css/aileron');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
   --bg: #0c0e14;
@@ -13,10 +14,10 @@
   --text: #e4e5eb;
   --text-muted: #8b8fa3;
   --text-dim: #565a6e;
-  --accent: #6c8cff;
-  --accent-hover: #5a7aee;
-  --accent-dim: rgba(108,140,255,0.15);
-  --accent-border: rgba(108,140,255,0.3);
+  --accent: #68B6E5;
+  --accent-hover: #52a8d9;
+  --accent-dim: rgba(104,182,229,0.15);
+  --accent-border: rgba(104,182,229,0.3);
   --success: #2ed573;
   --success-dim: rgba(46,213,115,0.15);
   --warning: #ffa502;
@@ -52,32 +53,32 @@
   --text: #1b1e28;
   --text-muted: #4a4e5c;
   --text-dim: #7c8091;
-  --accent: #3b6cf7;
-  --accent-hover: #2b5ce6;
-  --accent-dim: rgba(59,108,247,0.08);
-  --accent-border: rgba(59,108,247,0.2);
+  --accent: #2e8fc4;
+  --accent-hover: #2580b3;
+  --accent-dim: rgba(104,182,229,0.1);
+  --accent-border: rgba(104,182,229,0.25);
   --success: #1e9655;
   --success-dim: rgba(30,150,85,0.08);
   --warning: #d68a00;
   --warning-dim: rgba(214,138,0,0.08);
   --danger: #d63343;
   --danger-dim: rgba(214,51,67,0.08);
-  --today: rgba(59,108,247,0.05);
+  --today: rgba(104,182,229,0.06);
   --weekend: rgba(0,0,0,0.018);
 }
 
 /* Light mode overrides for specific components */
 [data-theme="light"] .sidebar {
-  background: #1e2230;
+  background: #1a1e2a;
   border-right-color: #1a1d2a;
 }
 [data-theme="light"] .nav-item { color: #8b90a8; }
 [data-theme="light"] .nav-item:hover { background: rgba(255,255,255,0.08); color: #c8cce0; }
-[data-theme="light"] .nav-item.active { background: rgba(59,108,247,0.2); color: #6c9aff; }
+[data-theme="light"] .nav-item.active { background: rgba(104,182,229,0.2); color: #6c9aff; }
 [data-theme="light"] .sidebar-bottom { border-top-color: rgba(255,255,255,0.08); }
 [data-theme="light"] .pod-header-label:hover { background: var(--surface2); }
 [data-theme="light"] .data-table td { border-bottom-color: var(--border); }
-[data-theme="light"] .data-table tr:hover td { background: rgba(59,108,247,0.04); }
+[data-theme="light"] .data-table tr:hover td { background: rgba(104,182,229,0.06); }
 [data-theme="light"] .gantt-bar { text-shadow: none; }
 [data-theme="light"] .topbar { box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
 [data-theme="light"] .modal-overlay { background: rgba(0,0,0,0.35); }
@@ -92,7 +93,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Aileron', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
