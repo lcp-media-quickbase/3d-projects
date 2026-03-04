@@ -481,10 +481,40 @@ function updateDateDisplay() {
 function populateSelects() {
   const ps = document.getElementById('fldPerson');
   ps.innerHTML = '<option value="">Select person...</option>' +
-    people.map(p=>`<option value="${p.tdId}">${escapeHtml(p.name)} (${escapeHtml(p.pod)})</option>`).join('');
+    people.map(p=>`<option value="${p.tdId}" data-pod="${escapeHtml(p.pod)}">${escapeHtml(p.name)} (${escapeHtml(p.pod)})</option>`).join('');
+  ps.onchange = function() { filterProjects(); };
+  filterProjects();
+}
+
+function filterProjects(keepValue) {
+  const ps = document.getElementById('fldPerson');
   const pj = document.getElementById('fldProject');
-  pj.innerHTML = '<option value="">Select project...</option>' +
-    projects.map(p=>`<option value="${p.id}">${p.number?p.number+' ':''}${escapeHtml(p.name)}</option>`).join('');
+  const prev = keepValue || pj.value;
+  const sel = ps.options[ps.selectedIndex];
+  const pod = sel && sel.dataset.pod ? sel.dataset.pod : '';
+
+  let podProjects = projects;
+  let otherProjects = [];
+  if (pod) {
+    podProjects = projects.filter(p => p.pod === pod);
+    otherProjects = projects.filter(p => p.pod !== pod);
+  }
+
+  let html = '<option value="">Select project...</option>';
+  if (pod && podProjects.length) {
+    html += `<optgroup label="${escapeHtml(pod)} Projects">`;
+    html += podProjects.map(p => `<option value="${p.id}">${p.number?p.number+' ':''}${escapeHtml(p.name)}</option>`).join('');
+    html += '</optgroup>';
+    if (otherProjects.length) {
+      html += '<optgroup label="Other Projects">';
+      html += otherProjects.map(p => `<option value="${p.id}">${p.number?p.number+' ':''}${escapeHtml(p.name)}</option>`).join('');
+      html += '</optgroup>';
+    }
+  } else {
+    html += projects.map(p => `<option value="${p.id}">${p.number?p.number+' ':''}${escapeHtml(p.name)}</option>`).join('');
+  }
+  pj.innerHTML = html;
+  if (prev) pj.value = prev;
 }
 
 function openNewAssignment(prefillPerson, prefillDate) {
@@ -513,7 +543,7 @@ function openEditAssignment(id) {
   document.getElementById('fldRecordId').value = a.id;
   document.getElementById('btnDelete').style.display = '';
   document.getElementById('fldPerson').value = a.personKey;
-  document.getElementById('fldProject').value = a.projectId;
+  filterProjects(String(a.projectId));
   document.getElementById('fldStart').value = a.start;
   document.getElementById('fldEnd').value = a.end;
   document.getElementById('fldHours').value = a.hours || 8;
