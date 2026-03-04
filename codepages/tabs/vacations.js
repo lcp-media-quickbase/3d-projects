@@ -199,6 +199,16 @@ window.vacCloseModal = function() { document.getElementById('vacModal').classLis
 window.vacSetFilterStatus = function(v) { filterStatus=v; renderTable(); };
 window.vacSetFilterPod = function(v) { filterPod=v; renderTable(); };
 
+window._vacAppSearch = function(val) {
+  var q = val.trim().toLowerCase();
+  // Filter vacations table by search
+  var rows = document.querySelectorAll('#vacBody tr');
+  rows.forEach(function(tr) {
+    if (!q) { tr.style.display = ''; return; }
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+};
+
 registerTab('vacations', {
   icon: '🏖️',
   label: 'Vacations',
@@ -212,6 +222,7 @@ registerTab('vacations', {
     populatePodFilter();
   },
   onActivate: async function() {
+    window.onAppSearch = window._vacAppSearch;
     await refreshData();
   }
 });

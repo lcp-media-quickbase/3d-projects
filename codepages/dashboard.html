@@ -29,6 +29,97 @@
     animation: spin 0.8s linear infinite; margin-bottom: 10px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .app-header {
+    display: flex;
+    align-items: center;
+    height: 44px;
+    padding: 0 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 16px;
+    z-index: 60;
+  }
+  .app-header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .app-header-logo svg { flex-shrink: 0; }
+  .app-header-logo span {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.2px;
+  }
+  .app-header-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .app-header-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+  .app-header-search {
+    flex: 1;
+    max-width: 420px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .app-header-search input {
+    width: 100%;
+    padding: 6px 12px 6px 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .app-header-search input:focus { border-color: var(--accent); }
+  .app-header-search input::placeholder { color: var(--text-dim); }
+  .app-header-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  .app-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .btn-ticket {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border: 1px solid var(--accent-border);
+    border-radius: 6px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-ticket:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-ticket svg { width: 14px; height: 14px; }
+
+  [data-theme="light"] .app-header { box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  [data-theme="light"] .app-header-search input { background: #fff; }
 </style>
 </head>
 <body>
@@ -56,9 +147,28 @@ var REPORT_ROLES = [ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.ADMIN_COPY];
 function buildDashboard() {
   document.body.innerHTML =
     renderDashboardNav() +
-    '<div class="main-content" id="tabArea">' +
-      renderTabContainers() +
+    '<div class="main-content">' +
+      renderAppHeader() +
+      '<div id="tabArea" style="flex:1;display:flex;flex-direction:column;overflow:hidden">' +
+        renderTabContainers() +
+      '</div>' +
     '</div>';
+
+  // Wire up search
+  var searchInput = document.getElementById('appSearchInput');
+  if (searchInput) {
+    var searchTimer = null;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      var val = this.value;
+      searchTimer = setTimeout(function() {
+        if (typeof window.onAppSearch === 'function') window.onAppSearch(val);
+      }, 200);
+    });
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { this.value = ''; if (typeof window.onAppSearch === 'function') window.onAppSearch(''); }
+    });
+  }
 
   // Determine starting tab from URL hash or default
   var hash = window.location.hash.replace('#', '');

@@ -534,6 +534,15 @@ window.schedSearch = function(val) {
   window._schedSearchTimer = setTimeout(function() { searchQuery=val.trim(); renderResourcePanel(); renderTimeline(); }, 150);
 };
 
+// Hook into app header search
+window._schedAppSearch = function(val) {
+  searchQuery = val.trim();
+  var localSearch = document.getElementById('searchBox');
+  if (localSearch) localSearch.value = val;
+  renderResourcePanel();
+  renderTimeline();
+};
+
 // ─── REGISTER TAB ─────────────────────────────────────────────
 registerTab('scheduler', {
   icon: '📅',
@@ -568,6 +577,7 @@ registerTab('scheduler', {
     window.addEventListener('resize', function() { resizeCells(); renderTimelineHeader(); renderTimeline(); });
   },
   onActivate: async function() {
+    window.onAppSearch = window._schedAppSearch;
     renderPodFilters();
     updateDateDisplay();
     renderTimelineHeader();

@@ -649,6 +649,15 @@ async function switchTab(id) {
     el.classList.toggle('active', el.dataset.tab === id);
   });
 
+  // Update header title and search placeholder
+  var headerTitle = document.getElementById('appHeaderTitle');
+  if (headerTitle) headerTitle.textContent = tab.label;
+  var searchInput = document.getElementById('appSearchInput');
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.placeholder = 'Search ' + tab.label.toLowerCase() + '...';
+  }
+
   // Update URL hash
   window.location.hash = id;
 }
@@ -677,6 +686,32 @@ function renderDashboardNav() {
       '</a>' +
     '</div>' +
   '</div>';
+}
+
+
+function renderAppHeader() {
+  var lcpLogo = '<svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="var(--accent)"/><text x="16" y="21" text-anchor="middle" fill="#fff" font-family="DM Sans,sans-serif" font-size="13" font-weight="800">LCP</text></svg>';
+  var searchIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  var ticketIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>';
+
+  return '<div class="app-header">' +
+    '<div class="app-header-logo">' + lcpLogo + '<span>3D Projects</span></div>' +
+    '<div class="app-header-divider"></div>' +
+    '<div class="app-header-title" id="appHeaderTitle">Scheduler</div>' +
+    '<div class="app-header-search">' +
+      '<span class="app-header-search-icon">' + searchIcon + '</span>' +
+      '<input type="text" id="appSearchInput" placeholder="Search this app..." autocomplete="off">' +
+    '</div>' +
+    '<div class="app-header-right">' +
+      '<button class="btn-ticket" onclick="openTicket()">' + ticketIcon + ' Submit Ticket</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function openTicket() {
+  // Can be configured to open a QB form, email, or external URL
+  var url = 'https://lcpmedia.quickbase.com/db/bu8tkk77g?a=nwr';
+  window.open(url, '_blank');
 }
 
 function renderTabContainers() {
