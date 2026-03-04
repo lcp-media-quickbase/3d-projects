@@ -690,7 +690,7 @@ function renderDashboardNav() {
 
 function renderAppHeader() {
   var darkLogo = 'https://www.lcpmedia.com/hs-fs/hubfs/LCP_Media_Logo_White_Green_PNG%20(2).png?width=600&height=206&name=LCP_Media_Logo_White_Green_PNG%20(2).png';
-  var lightLogo = 'https://www.lcpmedia.com/hs-fs/hubfs/Website/LCP%20Media/LCPMedia-Logo-RGB-Large-Blue.png';
+  var lightLogo = 'https://www.lcpmedia.com/hs-fs/hubfs/LCP%20Media_Logo-2.png?width=800&height=275&name=LCP%20Media_Logo-2.png';
   var isLight = document.documentElement.getAttribute('data-theme') === 'light';
   var lcpLogo = '<img src="' + (isLight ? lightLogo : darkLogo) + '" id="appLogo" alt="LCP Media" style="height:22px;width:auto">';
   var searchIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
@@ -737,7 +737,7 @@ function toggleTheme() {
   var label = document.getElementById('themeLabel');
   if (label) label.textContent = next === 'light' ? 'Dark Mode' : 'Light Mode';
   var logo = document.getElementById('appLogo');
-  if (logo) logo.src = next === 'light' ? 'https://www.lcpmedia.com/hs-fs/hubfs/Website/LCP%20Media/LCPMedia-Logo-RGB-Large-Blue.png' : 'https://www.lcpmedia.com/hs-fs/hubfs/LCP_Media_Logo_White_Green_PNG%20(2).png?width=600&height=206&name=LCP_Media_Logo_White_Green_PNG%20(2).png';
+  if (logo) logo.src = next === 'light' ? 'https://www.lcpmedia.com/hs-fs/hubfs/LCP%20Media_Logo-2.png?width=800&height=275&name=LCP%20Media_Logo-2.png' : 'https://www.lcpmedia.com/hs-fs/hubfs/LCP_Media_Logo_White_Green_PNG%20(2).png?width=600&height=206&name=LCP_Media_Logo_White_Green_PNG%20(2).png';
 }
 
 // Restore theme on load
