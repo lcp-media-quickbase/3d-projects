@@ -20,7 +20,7 @@ iframe{width:100%;height:100%;border:none}
 //
 // Cache bust every 5 min during dev. For stable production, remove ?_t param.
 var cacheBust = '?_t=' + Math.floor(Date.now() / 300000);
-var cdn = 'https://cdn.jsdelivr.net/gh/lcp-media-quickbase/3d-projects@7711d050e87d7520280c11ced700101975a8e812/codepages';
+var cdn = 'https://cdn.jsdelivr.net/gh/lcp-media-quickbase/3d-projects@main/codepages';
 
 Promise.all([
   fetch(cdn + '/shared.css' + cacheBust).then(r => r.text()),
