@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LCP 3D Resource Manager</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .dashboard-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: 100vh;
+  }
+  .tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .tab-loading {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--text-dim); font-family: system-ui;
+    flex-direction: column;
+  }
+  .tab-loading .spinner {
+    width: 20px; height: 20px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin-bottom: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<script src="shared.js"></script>
+<script>
+// ─── BOOTSTRAP ──────────────────────────────────────────────
+if (!initAuth()) {
+  document.body.innerHTML = '<div class="tab-loading"><span style="color:var(--danger)">Authentication failed.</span></div>';
+} else {
+
+detectRole();
+
+// ─── REGISTER TABS ──────────────────────────────────────────
+// Tab registration happens here. Each tab JS file is loaded below
+// and calls registerTab() to register itself.
+// Roles: 10=Viewer, 12=Admin, 13=Leadership, 14=Seniors, 15=Admin2
+
+var ALL_ROLES = [ROLE.VIEWER, ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.SENIORS, ROLE.ADMIN_COPY];
+var EDIT_ROLES = [ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.SENIORS, ROLE.ADMIN_COPY];
+var ADMIN_ROLES = [ROLE.ADMIN, ROLE.ADMIN_COPY];
+var REPORT_ROLES = [ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.ADMIN_COPY];
+
+// ─── BUILD SHELL ────────────────────────────────────────────
+// This runs AFTER all tab JS files are loaded (see bottom of page).
+function buildDashboard() {
+  document.body.innerHTML =
+    renderDashboardNav() +
+    '<div class="main-content" id="tabArea">' +
+      renderTabContainers() +
+    '</div>';
+
+  // Determine starting tab from URL hash or default
+  var hash = window.location.hash.replace('#', '');
+  var visible = getVisibleTabs();
+  var startTab = (hash && _tabs[hash]) ? hash : (visible.length ? visible[0].id : null);
+  if (startTab) switchTab(startTab);
+
+  // Handle back/forward browser navigation
+  window.addEventListener('hashchange', function() {
+    var h = window.location.hash.replace('#', '');
+    if (h && _tabs[h] && h !== _activeTab) switchTab(h);
+  });
+}
+
+}
+</script>
+
+<!-- Tab modules loaded here. Each registers itself via registerTab() -->
+<script src="tabs/scheduler.js"></script>
+<script src="tabs/vacations.js"></script>
+<script src="tabs/reports.js"></script>
+<script src="tabs/timesheets.js"></script>
+<script src="tabs/admin.js"></script>
+
+<script>
+// After all tabs registered, build the dashboard
+if (typeof buildDashboard === 'function') buildDashboard();
+</script>
+</body>
+</html>

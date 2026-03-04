@@ -441,3 +441,250 @@ function showToast(message, type='info') {
 var toastStyle = document.createElement('style');
 toastStyle.textContent = '@keyframes toastIn { from { transform:translateY(10px);opacity:0 } to { transform:translateY(0);opacity:1 } }';
 document.head.appendChild(toastStyle);
+
+
+// ─── ROLE DETECTION ──────────────────────────────────────────
+var ROLE = {
+  VIEWER: 10,
+  ADMIN: 12,
+  LEADERSHIP: 13,
+  SENIORS: 14,
+  ADMIN_COPY: 15
+};
+
+var _currentUser = { email: '', role: null, isAdmin: false, isLeadership: false, isSenior: false };
+
+function detectRole() {
+  // QB Code Pages inject globals for the logged-in user
+  if (typeof gReqRole !== 'undefined' && gReqRole) {
+    _currentUser.role = parseInt(gReqRole);
+  }
+  if (typeof gReqEmail !== 'undefined' && gReqEmail) {
+    _currentUser.email = gReqEmail;
+  }
+  // Fallback for local dev — admin
+  if (!_currentUser.role) _currentUser.role = ROLE.ADMIN;
+
+  _currentUser.isAdmin = (_currentUser.role === ROLE.ADMIN || _currentUser.role === ROLE.ADMIN_COPY);
+  _currentUser.isLeadership = (_currentUser.role === ROLE.LEADERSHIP);
+  _currentUser.isSenior = (_currentUser.role === ROLE.SENIORS);
+
+  console.log('[Role] Detected:', _currentUser.role, 'Admin:', _currentUser.isAdmin);
+  return _currentUser;
+}
+
+function currentUser() { return _currentUser; }
+
+// ─── DATA CACHE ──────────────────────────────────────────────
+// Reference data: loaded once, refreshed on demand
+// Time-series data: cached by date range, incremental fetches
+
+var _cache = {
+  people: { data: null, ts: 0 },
+  projects: { data: null, ts: 0 },
+  pods: { data: null, ts: 0 },
+  assignments: { data: [], range: { start: null, end: null }, ts: 0 },
+  vacations: { data: [], range: { start: null, end: null }, ts: 0 }
+};
+
+var CACHE_TTL = {
+  reference: 5 * 60 * 1000,   // people/projects/pods: 5 min
+  timeseries: 2 * 60 * 1000   // assignments/vacations: 2 min
+};
+
+function _isStale(entry, ttl) {
+  return !entry.data || (Date.now() - entry.ts > ttl);
+}
+
+// Reference data — load once, reuse across tabs
+async function getCachedPeople(force) {
+  if (!force && !_isStale(_cache.people, CACHE_TTL.reference)) return _cache.people.data;
+  _cache.people.data = await loadPeople();
+  _cache.people.ts = Date.now();
+  return _cache.people.data;
+}
+
+async function getCachedProjects(force) {
+  if (!force && !_isStale(_cache.projects, CACHE_TTL.reference)) return _cache.projects.data;
+  _cache.projects.data = await loadProjects();
+  _cache.projects.ts = Date.now();
+  return _cache.projects.data;
+}
+
+async function getCachedPods(force) {
+  if (!force && !_isStale(_cache.pods, CACHE_TTL.reference)) return _cache.pods.data;
+  _cache.pods.data = await loadPods();
+  _cache.pods.ts = Date.now();
+  return _cache.pods.data;
+}
+
+// Time-series data — cached by date range, smart refetch
+async function getCachedAssignments(startDate, endDate, force) {
+  var c = _cache.assignments;
+  // If same range and fresh, return cache
+  if (!force && c.range.start === startDate && c.range.end === endDate && !_isStale(c, CACHE_TTL.timeseries)) {
+    return c.data;
+  }
+  // Fetch for the requested range
+  var vStart = startDate;
+  var vEnd = endDate;
+  var records = await qbQuery(TABLES.assignments,
+    [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
+     FIELD.ASSIGN.project, FIELD.ASSIGN.projectName, FIELD.ASSIGN.projectNum,
+     FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours, FIELD.ASSIGN.desc,
+     FIELD.ASSIGN.workType, FIELD.ASSIGN.draft, FIELD.ASSIGN.priority, FIELD.ASSIGN.weekend],
+    '{' + FIELD.ASSIGN.end + '.OAF.' + vStart + '}AND{' + FIELD.ASSIGN.start + '.BF.' + vEnd + '}',
+    [{ fieldId: FIELD.ASSIGN.start, order: 'ASC' }], 2000);
+
+  c.data = records.records.map(function(r) {
+    return {
+      id: val(r,FIELD.ASSIGN.id), personKey: String(val(r,FIELD.ASSIGN.person)),
+      personName: val(r,FIELD.ASSIGN.personName), personPod: val(r,FIELD.ASSIGN.personPod),
+      projectId: val(r,FIELD.ASSIGN.project), projectName: val(r,FIELD.ASSIGN.projectName),
+      projectNum: val(r,FIELD.ASSIGN.projectNum), start: val(r,FIELD.ASSIGN.start),
+      end: val(r,FIELD.ASSIGN.end), hours: val(r,FIELD.ASSIGN.hours),
+      desc: val(r,FIELD.ASSIGN.desc), workType: val(r,FIELD.ASSIGN.workType),
+      draft: val(r,FIELD.ASSIGN.draft), priority: val(r,FIELD.ASSIGN.priority),
+      weekend: val(r,FIELD.ASSIGN.weekend)
+    };
+  });
+  c.range = { start: startDate, end: endDate };
+  c.ts = Date.now();
+  return c.data;
+}
+
+async function getCachedVacations(startDate, endDate, force) {
+  var c = _cache.vacations;
+  if (!force && c.range.start === startDate && c.range.end === endDate && !_isStale(c, CACHE_TTL.timeseries)) {
+    return c.data;
+  }
+  c.data = await loadVacations(startDate, endDate);
+  c.range = { start: startDate, end: endDate };
+  c.ts = Date.now();
+  return c.data;
+}
+
+function invalidateCache(key) {
+  if (_cache[key]) { _cache[key].ts = 0; }
+}
+
+function invalidateAll() {
+  Object.keys(_cache).forEach(function(k) { _cache[k].ts = 0; });
+}
+
+// ─── DASHBOARD FRAMEWORK ────────────────────────────────────
+// Tab registration and switching system
+
+var _tabs = {};
+var _activeTab = null;
+
+function registerTab(id, config) {
+  _tabs[id] = {
+    id: id,
+    icon: config.icon || '',
+    label: config.label || id,
+    roles: config.roles || [],      // which role IDs can see this tab
+    onInit: config.onInit || null,   // called once when tab first activated
+    onActivate: config.onActivate || null,  // called every time tab is shown
+    onDeactivate: config.onDeactivate || null,
+    initialized: false
+  };
+}
+
+function getVisibleTabs() {
+  var role = _currentUser.role;
+  return Object.keys(_tabs).filter(function(id) {
+    var t = _tabs[id];
+    if (!t.roles || t.roles.length === 0) return true; // no restriction
+    return t.roles.indexOf(role) !== -1;
+  }).map(function(id) { return _tabs[id]; });
+}
+
+async function switchTab(id) {
+  if (!_tabs[id]) return;
+  var tab = _tabs[id];
+
+  // Check role access
+  if (tab.roles.length > 0 && tab.roles.indexOf(_currentUser.role) === -1) {
+    showToast('You do not have access to this section', 'warning');
+    return;
+  }
+
+  // Deactivate current
+  if (_activeTab && _tabs[_activeTab]) {
+    var el = document.getElementById('tab-' + _activeTab);
+    if (el) el.style.display = 'none';
+    if (_tabs[_activeTab].onDeactivate) _tabs[_activeTab].onDeactivate();
+  }
+
+  // Activate target
+  var container = document.getElementById('tab-' + id);
+  if (container) container.style.display = '';
+
+  if (!tab.initialized && tab.onInit) {
+    await tab.onInit();
+    tab.initialized = true;
+  }
+
+  if (tab.onActivate) await tab.onActivate();
+
+  _activeTab = id;
+
+  // Update sidebar active state
+  document.querySelectorAll('.nav-item').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.tab === id);
+  });
+
+  // Update URL hash
+  window.location.hash = id;
+}
+
+function renderDashboardNav() {
+  var tabs = getVisibleTabs();
+
+  var themeIcon = (document.documentElement.getAttribute('data-theme') === 'light') ? '🌙' : '☀️';
+
+  return '<div class="sidebar">' +
+    '<div class="sidebar-logo">3D</div>' +
+    '<div class="nav-items">' +
+    tabs.map(function(t) {
+      return '<a class="nav-item" data-tab="' + t.id + '" onclick="switchTab(\x27' + t.id + '\x27)" href="javascript:void(0)">' +
+        '<span class="nav-icon">' + t.icon + '</span>' +
+        '<span class="nav-label">' + t.label + '</span>' +
+      '</a>';
+    }).join('') +
+    '</div>' +
+    '<div class="sidebar-bottom">' +
+      '<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">' +
+        '<span id="themeIcon">' + themeIcon + '</span>' +
+      '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderTabContainers() {
+  var tabs = getVisibleTabs();
+  return tabs.map(function(t) {
+    return '<div id="tab-' + t.id + '" class="tab-content" style="display:none"></div>';
+  }).join('');
+}
+
+// Theme toggle (from previous implementation)
+function toggleTheme() {
+  var html = document.documentElement;
+  var current = html.getAttribute('data-theme');
+  var next = current === 'light' ? 'dark' : 'light';
+  if (next === 'dark') html.removeAttribute('data-theme');
+  else html.setAttribute('data-theme', 'light');
+  try { localStorage.setItem('lcp3d-theme', next); } catch(e) {}
+  var icon = document.getElementById('themeIcon');
+  if (icon) icon.textContent = next === 'light' ? '🌙' : '☀️';
+}
+
+// Restore theme on load
+(function() {
+  try {
+    var saved = localStorage.getItem('lcp3d-theme');
+    if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  } catch(e) {}
+})();
