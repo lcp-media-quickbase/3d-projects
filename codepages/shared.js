@@ -17,7 +17,8 @@ var TABLES = {
   people: 'bu8ttwq2f',
   projects: 'bvaitp9x5',
   milestones: 'bvu4tbpms',
-  pods: 'bu8tt69gx'
+  pods: 'bu8tt69gx',
+  vacations: 'bvu7e3p7c'
 };
 
 var FIELD = {
@@ -28,7 +29,8 @@ var FIELD = {
   PEOPLE: { id:3, name:7, email:8, role:11, active:19, podName:22, tdId:23, partTime:24 },
   PROJECTS: { id:3, name:19, number:23, type:26, stage:27, pod:82, deal:52 },
   MILESTONES: { id:3, project:6, projectName:7, projectNum:8, name:10, phase:11, start:12, end:13 },
-  PODS: { id:3, name:6, tdId:11 }
+  PODS: { id:3, name:6, tdId:11 },
+  VACATION: { id:3, person:6, personName:7, personEmail:8, personPod:9, personTdId:10, start:11, end:12, type:13, status:14, notes:15 }
 };
 
 var POD_COLORS = {
@@ -46,6 +48,8 @@ var PROJECT_COLORS = [
 var WORK_TYPES = ['Modelling','GreyScale','FloorPlans','Animatic','SiteMap','Extra'];
 var DRAFT_PHASES = ['Draft 1','Draft 2','Final','Animation','Extra 1','Extra 2','Extra 3','Extra 4'];
 var PRIORITIES = ['High','Medium','Low'];
+var VACATION_TYPES = ['Vacation','Sick','Personal','Holiday','Other'];
+var VACATION_STATUSES = ['Pending','Approved','Denied'];
 var PROJECT_STAGES = ['Pre-Production','In Production','Complete'];
 var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -304,6 +308,32 @@ async function loadPods() {
   }));
 }
 
+async function loadVacations(startDate, endDate) {
+  var where = null;
+  if (startDate && endDate) {
+    where = '{' + FIELD.VACATION.end + '.OAF.' + startDate + '}AND{' + FIELD.VACATION.start + '.BF.' + endDate + '}';
+  }
+  var rows = await qbQueryAll(TABLES.vacations,
+    [FIELD.VACATION.id, FIELD.VACATION.person, FIELD.VACATION.personName,
+     FIELD.VACATION.personEmail, FIELD.VACATION.personPod, FIELD.VACATION.personTdId,
+     FIELD.VACATION.start, FIELD.VACATION.end, FIELD.VACATION.type,
+     FIELD.VACATION.status, FIELD.VACATION.notes],
+    where);
+  return rows.map(function(r) {
+    return {
+      id: val(r, FIELD.VACATION.id),
+      personKey: String(val(r, FIELD.VACATION.personTdId)),
+      personName: val(r, FIELD.VACATION.personName),
+      personPod: val(r, FIELD.VACATION.personPod),
+      start: val(r, FIELD.VACATION.start),
+      end: val(r, FIELD.VACATION.end),
+      type: val(r, FIELD.VACATION.type),
+      status: val(r, FIELD.VACATION.status),
+      notes: val(r, FIELD.VACATION.notes)
+    };
+  });
+}
+
 // ─── UTILITIES ─────────────────────────────────────────────
 function val(record, fieldId) {
   const v = record[fieldId]?.value;
@@ -367,7 +397,7 @@ function renderNav(activePage) {
     { id:'admin', icon:'⚙️', label:'Admin', file:'admin.html' },
     { id:'reports', icon:'📊', label:'Reports', file:'reports.html' },
     { id:'timesheets', icon:'⏱️', label:'Timesheets', file:'timesheets.html' },
-    { id:'leave', icon:'🏖️', label:'Leave', file:'leave.html' },
+    { id:'vacations', icon:'🏖️', label:'Vacations', file:'vacations.html' },
   ];
 
   return `

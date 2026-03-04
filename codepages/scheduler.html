@@ -171,6 +171,16 @@
   .bar-text:active { cursor: grabbing; }
   .btn-danger { background: var(--danger-dim); color: var(--danger); border-color: var(--danger); }
   .btn-danger:hover { background: var(--danger); color: #fff; }
+
+  .vacation-bar {
+    background: repeating-linear-gradient(45deg, var(--danger-dim), var(--danger-dim) 4px, transparent 4px, transparent 8px) !important;
+    border: 1px dashed var(--danger) !important;
+    color: var(--danger) !important;
+    opacity: 0.8;
+    cursor: default !important;
+    pointer-events: none;
+  }
+  .vacation-bar .bar-text { font-size: 10px; font-weight: 600; text-shadow: none !important; }
   .gantt-bar:hover {
     opacity: 0.9; transform: scaleY(1.15); z-index: 20;
     box-shadow: 0 2px 8px rgba(0,0,0,0.5);
@@ -197,6 +207,7 @@ let currentView = 'week';
 let people = [];
 let projects = [];
 let assignments = [];
+let vacations = [];
 let milestones = [];
 let activePods = new Set();
 let collapsedPods = new Set();
@@ -305,6 +316,14 @@ async function loadAssignments() {
     draft: val(r,FIELD.ASSIGN.draft), priority: val(r,FIELD.ASSIGN.priority),
     weekend: val(r,FIELD.ASSIGN.weekend)
   }));
+}
+
+async function loadVacationData() {
+  var vStart = formatDate(viewStart);
+  var vEnd = formatDate(addDays(viewStart, viewDays));
+  vacations = await loadVacations(vStart, vEnd);
+  // Only show approved vacations on Gantt
+  vacations = vacations.filter(function(v) { return v.status === 'Approved'; });
 }
 
 // ─── RENDERING ─────────────────────────────────────────────
@@ -605,7 +624,7 @@ async function saveAssignment() {
     await qbUpsert(TABLES.assignments,[record]);
     closeModal();
     showToast(isEdit ? 'Assignment updated' : 'Assignment created','success');
-    await loadAssignments(); renderTimeline();
+    await loadAssignments(); await loadVacationData(); renderTimeline();
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
@@ -617,7 +636,7 @@ async function deleteAssignment() {
     await qbDelete(TABLES.assignments, `{${FIELD.ASSIGN.id}.EX.${recordId}}`);
     closeModal();
     showToast('Assignment deleted','success');
-    await loadAssignments(); renderTimeline();
+    await loadAssignments(); await loadVacationData(); renderTimeline();
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
@@ -737,6 +756,7 @@ async function init() {
     pods.forEach(p => activePods.add(p));
     renderPodFilters(); renderResourcePanel();
     await loadAssignments();
+    await loadVacationData();
     renderTimeline();
   } catch(e) { document.getElementById('loadingIndicator').innerHTML=`<span style="color:var(--danger)">Error: ${e.message}</span>`; }
 }

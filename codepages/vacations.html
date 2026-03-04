@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vacations — LCP 3D Resource Manager</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .vacation-grid { padding: 24px; }
+  .vacation-table { width: 100%; border-collapse: collapse; }
+  .vacation-table th {
+    text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600;
+    color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .vacation-table td {
+    padding: 10px 14px; font-size: 13px; color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  .vacation-table tr:hover td { background: var(--surface2); }
+  .vacation-table tr { cursor: pointer; }
+  .status-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 10px;
+    font-size: 11px; font-weight: 600;
+  }
+  .status-pending { background: var(--warning-dim); color: var(--warning); }
+  .status-approved { background: var(--success-dim); color: var(--success); }
+  .status-denied { background: var(--danger-dim); color: var(--danger); }
+  .type-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 10px;
+    font-size: 11px; font-weight: 500; background: var(--accent-dim); color: var(--accent);
+  }
+  .type-sick { background: var(--danger-dim); color: var(--danger); }
+  .type-personal { background: rgba(204,93,232,0.15); color: #cc5de8; }
+  .type-holiday { background: var(--success-dim); color: var(--success); }
+  .filter-row { display: flex; gap: 12px; align-items: center; }
+  .filter-row select { min-width: 140px; }
+  .vacation-modal {
+    position: fixed; inset: 0; z-index: 1000; display: flex;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .vacation-modal.visible { opacity: 1; pointer-events: all; }
+  .vacation-modal-content {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; width: 440px; max-width: 90vw;
+  }
+  .vacation-stats {
+    display: flex; gap: 16px; margin-bottom: 20px;
+  }
+  .vacation-stat {
+    flex: 1; padding: 14px; background: var(--surface2); border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .vacation-stat-num { font-size: 22px; font-weight: 700; color: var(--text); }
+  .vacation-stat-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+</style>
+</head>
+<body>
+<script src="shared.js"></script>
+<script>
+if (!initAuth()) {
+  document.body.innerHTML = '<div class="loading" style="height:100vh"><span style="color:var(--danger)">Authentication failed.</span></div>';
+} else {
+
+var vacations = [];
+var allPeople = [];
+var filterStatus = '';
+var filterPod = '';
+
+document.body.innerHTML = renderNav('vacations') + `
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title"><span>🏖️</span> Vacations</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="openNewVacation()">+ Vacation Request</button>
+      </div>
+    </div>
+    <div class="vacation-grid">
+      <div class="vacation-stats" id="vacationStats"></div>
+      <div class="filter-row" style="margin-bottom:16px">
+        <select class="form-select" id="filterStatus" onchange="filterStatus=this.value;renderTable()">
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Denied">Denied</option>
+        </select>
+        <select class="form-select" id="filterPodVac" onchange="filterPod=this.value;renderTable()">
+          <option value="">All Pods</option>
+        </select>
+      </div>
+      <table class="vacation-table">
+        <thead><tr>
+          <th>Person</th><th>Pod</th><th>Type</th><th>Start</th><th>End</th><th>Days</th><th>Status</th><th>Notes</th>
+        </tr></thead>
+        <tbody id="vacationBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="vacation-modal" id="vacModal" onclick="if(event.target===this)closeVacModal()">
+    <div class="vacation-modal-content">
+      <div id="vacModalTitle" style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--text)">New Vacation Request</div>
+      <input type="hidden" id="vacId" value="">
+      <div class="form-group"><label class="form-label">Person</label><select class="form-select" id="vacPerson"></select></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="vacStart"></div>
+        <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="vacEnd"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Type</label>
+          <select class="form-select" id="vacType">${VACATION_TYPES.map(t=>'<option>'+t+'</option>').join('')}</select>
+        </div>
+        <div class="form-group"><label class="form-label">Status</label>
+          <select class="form-select" id="vacStatus">${VACATION_STATUSES.map(s=>'<option>'+s+'</option>').join('')}</select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="vacNotes" rows="2"></textarea></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px">
+        <button class="btn btn-danger" id="vacBtnDelete" onclick="deleteVacation()" style="display:none">Delete</button>
+        <div style="display:flex;gap:8px;margin-left:auto">
+          <button class="btn" onclick="closeVacModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveVacation()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+`;
+
+function renderStats() {
+  var now = new Date();
+  var pending = vacations.filter(function(v) { return v.status === 'Pending'; }).length;
+  var upcoming = vacations.filter(function(v) { return v.status === 'Approved' && parseDate(v.start) >= now; }).length;
+  var active = vacations.filter(function(v) {
+    return v.status === 'Approved' && parseDate(v.start) <= now && parseDate(v.end) >= now;
+  }).length;
+  document.getElementById('vacationStats').innerHTML =
+    '<div class="vacation-stat"><div class="vacation-stat-num" style="color:var(--warning)">' + pending + '</div><div class="vacation-stat-label">Pending Approval</div></div>' +
+    '<div class="vacation-stat"><div class="vacation-stat-num" style="color:var(--success)">' + active + '</div><div class="vacation-stat-label">On Vacation Now</div></div>' +
+    '<div class="vacation-stat"><div class="vacation-stat-num" style="color:var(--accent)">' + upcoming + '</div><div class="vacation-stat-label">Upcoming Approved</div></div>' +
+    '<div class="vacation-stat"><div class="vacation-stat-num">' + vacations.length + '</div><div class="vacation-stat-label">Total Requests</div></div>';
+}
+
+function renderTable() {
+  var filtered = vacations.filter(function(v) {
+    if (filterStatus && v.status !== filterStatus) return false;
+    if (filterPod && v.personPod !== filterPod) return false;
+    return true;
+  });
+  filtered.sort(function(a,b) { return (a.start > b.start) ? -1 : 1; });
+
+  var html = '';
+  filtered.forEach(function(v) {
+    var days = Math.round((parseDate(v.end) - parseDate(v.start)) / 86400000) + 1;
+    var sc = v.status === 'Approved' ? 'status-approved' : v.status === 'Denied' ? 'status-denied' : 'status-pending';
+    var tc = v.type === 'Sick' ? 'type-sick' : v.type === 'Personal' ? 'type-personal' : v.type === 'Holiday' ? 'type-holiday' : 'type-badge';
+    html += '<tr onclick="openEditVacation(' + v.id + ')">' +
+      '<td>' + escapeHtml(v.personName) + '</td>' +
+      '<td>' + escapeHtml(v.personPod) + '</td>' +
+      '<td><span class="' + tc + '">' + escapeHtml(v.type) + '</span></td>' +
+      '<td>' + v.start + '</td><td>' + v.end + '</td>' +
+      '<td>' + days + '</td>' +
+      '<td><span class="status-badge ' + sc + '">' + escapeHtml(v.status) + '</span></td>' +
+      '<td style="color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(v.notes || '') + '</td>' +
+      '</tr>';
+  });
+  if (!filtered.length) html = '<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:40px">No vacation requests found</td></tr>';
+  document.getElementById('vacationBody').innerHTML = html;
+}
+
+function populatePodFilter() {
+  var pods = [];
+  var seen = {};
+  allPeople.forEach(function(p) { if (!seen[p.pod]) { seen[p.pod] = true; pods.push(p.pod); } });
+  pods.sort();
+  document.getElementById('filterPodVac').innerHTML = '<option value="">All Pods</option>' +
+    pods.map(function(p) { return '<option>' + escapeHtml(p) + '</option>'; }).join('');
+}
+
+function openNewVacation() {
+  document.getElementById('vacModalTitle').textContent = 'New Vacation Request';
+  document.getElementById('vacId').value = '';
+  document.getElementById('vacBtnDelete').style.display = 'none';
+  var ps = document.getElementById('vacPerson');
+  ps.innerHTML = '<option value="">Select person...</option>' +
+    allPeople.map(function(p) { return '<option value="' + p.id + '">' + escapeHtml(p.name) + ' (' + escapeHtml(p.pod) + ')</option>'; }).join('');
+  document.getElementById('vacStart').value = formatDate(new Date());
+  document.getElementById('vacEnd').value = formatDate(addDays(new Date(), 4));
+  document.getElementById('vacType').value = 'Vacation';
+  document.getElementById('vacStatus').value = 'Pending';
+  document.getElementById('vacNotes').value = '';
+  document.getElementById('vacModal').classList.add('visible');
+}
+
+function openEditVacation(id) {
+  var v = vacations.find(function(x) { return x.id === id; });
+  if (!v) return;
+  document.getElementById('vacModalTitle').textContent = 'Edit Vacation Request';
+  document.getElementById('vacId').value = v.id;
+  document.getElementById('vacBtnDelete').style.display = '';
+  var ps = document.getElementById('vacPerson');
+  ps.innerHTML = '<option value="">Select person...</option>' +
+    allPeople.map(function(p) { return '<option value="' + p.id + '">' + escapeHtml(p.name) + ' (' + escapeHtml(p.pod) + ')</option>'; }).join('');
+  // Find person by name match since we store QB record ID, not tdId
+  var match = allPeople.find(function(p) { return p.name === v.personName; });
+  if (match) ps.value = match.id;
+  document.getElementById('vacStart').value = v.start;
+  document.getElementById('vacEnd').value = v.end;
+  document.getElementById('vacType').value = v.type;
+  document.getElementById('vacStatus').value = v.status;
+  document.getElementById('vacNotes').value = v.notes || '';
+  document.getElementById('vacModal').classList.add('visible');
+}
+
+function closeVacModal() { document.getElementById('vacModal').classList.remove('visible'); }
+
+async function saveVacation() {
+  var person = document.getElementById('vacPerson').value;
+  var start = document.getElementById('vacStart').value;
+  var end = document.getElementById('vacEnd').value;
+  if (!person || !start || !end) { showToast('Person, Start and End are required', 'warning'); return; }
+  var recordId = document.getElementById('vacId').value;
+  var record = {};
+  record[FIELD.VACATION.person] = {value: parseInt(person)};
+  record[FIELD.VACATION.start] = {value: start};
+  record[FIELD.VACATION.end] = {value: end};
+  record[FIELD.VACATION.type] = {value: document.getElementById('vacType').value};
+  record[FIELD.VACATION.status] = {value: document.getElementById('vacStatus').value};
+  record[FIELD.VACATION.notes] = {value: document.getElementById('vacNotes').value};
+  if (recordId) record[FIELD.VACATION.id] = {value: parseInt(recordId)};
+  try {
+    await qbUpsert(TABLES.vacations, [record]);
+    closeVacModal();
+    showToast(recordId ? 'Vacation updated' : 'Vacation request created', 'success');
+    await loadData();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function deleteVacation() {
+  var recordId = document.getElementById('vacId').value;
+  if (!recordId || !confirm('Delete this vacation request?')) return;
+  try {
+    await qbDelete(TABLES.vacations, '{' + FIELD.VACATION.id + '.EX.' + recordId + '}');
+    closeVacModal();
+    showToast('Vacation deleted', 'success');
+    await loadData();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function loadData() {
+  vacations = await loadVacations();
+  renderStats();
+  renderTable();
+}
+
+async function init() {
+  try {
+    allPeople = await loadPeople();
+    populatePodFilter();
+    await loadData();
+  } catch(e) { showToast('Error loading: ' + e.message, 'error'); }
+}
+
+init();
+
+}
+</script>
+</body>
+</html>
