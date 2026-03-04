@@ -188,7 +188,6 @@ initAuth();
 
 // ─── BUILD PAGE ────────────────────────────────────────────
 document.body.innerHTML = `
-  if (!initAuth()) { document.getElementById('loadingIndicator').innerHTML='<span style="color:var(--danger)">No API token.</span>'; return; }
   ${renderNav('scheduler')}
   <div class="main-content">
     <div class="topbar">
@@ -428,8 +427,7 @@ function hideTip() { document.getElementById('tooltip').classList.remove('visibl
 
 function togglePod(pod) {
   activePods.has(pod)?activePods.delete(pod):activePods.add(pod);
-  resizeCells(); renderPodFilters(); renderResourcePanel(); renderTimeline();
-  window.addEventListener('resize', () => { resizeCells(); renderTimelineHeader(); renderTimeline(); });
+  renderPodFilters(); renderResourcePanel(); renderTimeline();
 }
 function toggleCollapse(pod) {
   collapsedPods.has(pod)?collapsedPods.delete(pod):collapsedPods.add(pod);
@@ -516,6 +514,8 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) { 
 // ─── INIT ──────────────────────────────────────────────────
 async function init() {
   if (!initAuth()) { document.getElementById('loadingIndicator').innerHTML='<span style="color:var(--danger)">No API token.</span>'; return; }
+  resizeCells();
+  window.addEventListener('resize', () => { resizeCells(); renderTimelineHeader(); renderTimeline(); });
   updateDateDisplay(); renderTimelineHeader();
   try {
     [people, projects] = await Promise.all([loadPeople(), loadProjects()]);
