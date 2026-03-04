@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports — LCP 3D Resource Manager</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .chart-title { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+
+  .util-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(42,45,58,0.4); }
+  .util-name { min-width: 140px; font-size: 13px; font-weight: 500; color: var(--text); }
+  .util-bar { flex: 1; height: 20px; background: var(--surface3); border-radius: 4px; overflow: hidden; position: relative; }
+  .util-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; transition: width 0.5s ease; }
+  .util-fill span { font-size: 10px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .util-pct { min-width: 45px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; }
+
+  .heatmap { display: grid; gap: 2px; }
+  .heatmap-cell {
+    aspect-ratio: 1; border-radius: 3px; display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.7); cursor: default;
+  }
+  .heatmap-label { font-size: 10px; color: var(--text-dim); text-align: center; padding: 4px 0; }
+
+  .kpi-trend { font-size: 11px; margin-top: 4px; }
+  .kpi-up { color: var(--success); }
+  .kpi-down { color: var(--danger); }
+  .kpi-flat { color: var(--text-dim); }
+
+  .date-range-picker { display: flex; align-items: center; gap: 8px; }
+  .date-range-picker input { width: 130px; }
+
+  @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<script src="shared.js"></script>
+<script>
+// ─── STATE ─────────────────────────────────────────────────
+let people = [];
+let assignments = [];
+let rangeStart = addDays(getMonday(new Date()), -7);
+let rangeEnd = addDays(getMonday(new Date()), 13);
+
+// ─── BUILD PAGE ────────────────────────────────────────────
+document.body.innerHTML = `
+  ${renderNav('reports')}
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title"><span>📊</span> Reports & Analytics</div>
+      </div>
+      <div class="topbar-right">
+        <div class="date-range-picker">
+          <input class="form-input" type="date" id="rangeFrom" value="${formatDate(rangeStart)}" onchange="updateRange()">
+          <span style="color:var(--text-dim)">→</span>
+          <input class="form-input" type="date" id="rangeTo" value="${formatDate(rangeEnd)}" onchange="updateRange()">
+        </div>
+        <div class="btn-group">
+          <button class="btn" onclick="setRange('week')">This Week</button>
+          <button class="btn btn-active" onclick="setRange('2week')">2 Weeks</button>
+          <button class="btn" onclick="setRange('month')">Month</button>
+          <button class="btn" onclick="setRange('quarter')">Quarter</button>
+        </div>
+      </div>
+    </div>
+    <div class="page-body" id="reportBody">
+      <div class="loading"><div class="spinner"></div>Calculating reports...</div>
+    </div>
+  </div>
+`;
+
+// ─── DATA ──────────────────────────────────────────────────
+async function loadReportData() {
+  const sStart = formatDate(rangeStart), sEnd = formatDate(rangeEnd);
+  const [ppl, { records }] = await Promise.all([
+    loadPeople(true),
+    qbQuery(TABLES.assignments,
+      [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
+       FIELD.ASSIGN.project, FIELD.ASSIGN.projectName, FIELD.ASSIGN.projectNum, FIELD.ASSIGN.projectPod,
+       FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours, FIELD.ASSIGN.workType,
+       FIELD.ASSIGN.draft, FIELD.ASSIGN.priority, FIELD.ASSIGN.weekend],
+      `{${FIELD.ASSIGN.end}.OAF.${sStart}}AND{${FIELD.ASSIGN.start}.BF.${sEnd}}`,
+      null, 5000)
+  ]);
+
+  people = ppl;
+  assignments = records.map(r => ({
+    id: val(r,FIELD.ASSIGN.id), personKey: String(val(r,FIELD.ASSIGN.person)),
+    personName: val(r,FIELD.ASSIGN.personName), personPod: val(r,FIELD.ASSIGN.personPod),
+    projectId: val(r,FIELD.ASSIGN.project), projectName: val(r,FIELD.ASSIGN.projectName),
+    projectNum: val(r,FIELD.ASSIGN.projectNum), projectPod: val(r,FIELD.ASSIGN.projectPod),
+    start: val(r,FIELD.ASSIGN.start), end: val(r,FIELD.ASSIGN.end),
+    hours: val(r,FIELD.ASSIGN.hours), workType: val(r,FIELD.ASSIGN.workType),
+    draft: val(r,FIELD.ASSIGN.draft), priority: val(r,FIELD.ASSIGN.priority),
+    weekend: val(r,FIELD.ASSIGN.weekend)
+  }));
+}
+
+// ─── CALCULATIONS ──────────────────────────────────────────
+function calcWorkdays(start, end) {
+  let count = 0;
+  const s = typeof start==='string' ? parseDate(start) : new Date(start);
+  const e = typeof end==='string' ? parseDate(end) : new Date(end);
+  const cur = new Date(s);
+  while (cur <= e) {
+    const dow = cur.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+    cur.setDate(cur.getDate()+1);
+  }
+  return count;
+}
+
+function calcAssignmentDaysInRange(a) {
+  const aStart = parseDate(a.start), aEnd = parseDate(a.end);
+  if (!aStart || !aEnd) return 0;
+  const effStart = aStart < rangeStart ? rangeStart : aStart;
+  const effEnd = aEnd > rangeEnd ? rangeEnd : aEnd;
+  if (effStart > effEnd) return 0;
+  return a.weekend ? daysBetween(effStart, effEnd)+1 : calcWorkdays(effStart, effEnd);
+}
+
+function calcAssignmentHoursInRange(a) {
+  return calcAssignmentDaysInRange(a) * (a.hours || 8);
+}
+
+function getPersonUtilization() {
+  const totalWorkdays = calcWorkdays(rangeStart, rangeEnd);
+  const maxHours = totalWorkdays * 8;
+
+  return people.map(p => {
+    const pAssignments = assignments.filter(a => a.personKey === p.tdId);
+    const bookedHours = pAssignments.reduce((sum, a) => sum + calcAssignmentHoursInRange(a), 0);
+    const utilPct = maxHours > 0 ? Math.round(bookedHours / maxHours * 100) : 0;
+    return { ...p, bookedHours, maxHours, utilPct, assignmentCount: pAssignments.length };
+  }).sort((a,b) => b.utilPct - a.utilPct);
+}
+
+function getPodUtilization() {
+  const personUtil = getPersonUtilization();
+  const pods = {};
+  personUtil.forEach(p => {
+    if (!pods[p.pod]) pods[p.pod] = { pod: p.pod, totalBooked: 0, totalMax: 0, people: 0 };
+    pods[p.pod].totalBooked += p.bookedHours;
+    pods[p.pod].totalMax += p.maxHours;
+    pods[p.pod].people++;
+  });
+  return Object.values(pods).map(p => ({
+    ...p, utilPct: p.totalMax > 0 ? Math.round(p.totalBooked / p.totalMax * 100) : 0
+  })).sort((a,b) => b.utilPct - a.utilPct);
+}
+
+function getProjectLoad() {
+  const projects = {};
+  assignments.forEach(a => {
+    const key = a.projectId;
+    if (!projects[key]) projects[key] = { id: key, name: a.projectName, number: a.projectNum, pod: a.projectPod, totalHours: 0, people: new Set() };
+    projects[key].totalHours += calcAssignmentHoursInRange(a);
+    projects[key].people.add(a.personKey);
+  });
+  return Object.values(projects).map(p => ({ ...p, peopleCount: p.people.size }))
+    .sort((a,b) => b.totalHours - a.totalHours);
+}
+
+function getWorkTypeBreakdown() {
+  const types = {};
+  assignments.forEach(a => {
+    const t = a.workType || 'Untagged';
+    types[t] = (types[t]||0) + calcAssignmentHoursInRange(a);
+  });
+  return Object.entries(types).sort((a,b)=>b[1]-a[1]);
+}
+
+// ─── RENDERING ─────────────────────────────────────────────
+function utilColor(pct) {
+  if (pct >= 100) return 'var(--danger)';
+  if (pct >= 80) return 'var(--warning)';
+  if (pct >= 40) return 'var(--accent)';
+  return 'var(--text-dim)';
+}
+
+function renderReports() {
+  const personUtil = getPersonUtilization();
+  const podUtil = getPodUtilization();
+  const projectLoad = getProjectLoad();
+  const workTypes = getWorkTypeBreakdown();
+  const totalWorkdays = calcWorkdays(rangeStart, rangeEnd);
+
+  const totalBooked = personUtil.reduce((s,p) => s+p.bookedHours, 0);
+  const totalCapacity = personUtil.reduce((s,p) => s+p.maxHours, 0);
+  const avgUtil = totalCapacity > 0 ? Math.round(totalBooked/totalCapacity*100) : 0;
+  const overloaded = personUtil.filter(p => p.utilPct > 100).length;
+  const underloaded = personUtil.filter(p => p.utilPct < 40).length;
+
+  let html = '';
+
+  // KPI Cards
+  html += `<div class="report-grid">
+    <div class="card"><div class="card-title">Avg Utilization</div><div class="card-value" style="color:${utilColor(avgUtil)}">${avgUtil}%</div><div class="card-sub">${totalWorkdays} workdays in range</div></div>
+    <div class="card"><div class="card-title">Total Booked</div><div class="card-value">${Math.round(totalBooked).toLocaleString()}h</div><div class="card-sub">of ${totalCapacity.toLocaleString()}h capacity</div></div>
+    <div class="card"><div class="card-title">Overloaded</div><div class="card-value" style="color:var(--danger)">${overloaded}</div><div class="card-sub">people over 100%</div></div>
+    <div class="card"><div class="card-title">Underutilized</div><div class="card-value" style="color:var(--text-dim)">${underloaded}</div><div class="card-sub">people under 40%</div></div>
+    <div class="card"><div class="card-title">Active Projects</div><div class="card-value">${projectLoad.length}</div><div class="card-sub">with assignments in range</div></div>
+  </div>`;
+
+  // Utilization by Person + POD
+  html += `<div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title">Utilization by Person</div>
+      ${personUtil.map(p => {
+        const c = utilColor(p.utilPct);
+        const barW = Math.min(p.utilPct, 150);
+        return `<div class="util-row">
+          <div class="util-name">${escapeHtml(p.name)}</div>
+          <div class="util-bar"><div class="util-fill" style="width:${barW}%;background:${c}"><span>${Math.round(p.bookedHours)}h</span></div></div>
+          <div class="util-pct" style="color:${c}">${p.utilPct}%</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Utilization by POD</div>
+      ${podUtil.map(p => {
+        const c = utilColor(p.utilPct);
+        const pc = podColor(p.pod);
+        return `<div class="util-row">
+          <div class="util-name"><span class="dot" style="background:${pc};margin-right:8px"></span>${escapeHtml(p.pod)}</div>
+          <div class="util-bar"><div class="util-fill" style="width:${Math.min(p.utilPct,150)}%;background:${pc}"><span>${Math.round(p.totalBooked)}h / ${p.people} ppl</span></div></div>
+          <div class="util-pct" style="color:${c}">${p.utilPct}%</div>
+        </div>`;
+      }).join('')}
+      <div style="margin-top:24px">
+        <div class="chart-title">Work Type Breakdown</div>
+        ${workTypes.map(([type, hours]) => {
+          const maxH = workTypes[0][1];
+          const barW = maxH>0 ? hours/maxH*100 : 0;
+          return `<div class="util-row">
+            <div class="util-name">${escapeHtml(type)}</div>
+            <div class="util-bar"><div class="util-fill" style="width:${barW}%;background:var(--accent)"><span>${Math.round(hours)}h</span></div></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  // Top Projects by Hours
+  html += `<div class="chart-card">
+    <div class="chart-title">Top Projects by Booked Hours</div>
+    <table class="data-table">
+      <thead><tr><th>Project</th><th>POD</th><th>People</th><th>Hours</th><th>Load</th></tr></thead>
+      <tbody>
+        ${projectLoad.slice(0,20).map(p => {
+          const maxH = projectLoad[0]?.totalHours||1;
+          const barW = p.totalHours/maxH*100;
+          return `<tr>
+            <td class="cell-name">${p.number?p.number+' ':''}${escapeHtml(p.name)}</td>
+            <td>${escapeHtml(p.pod)||'—'}</td>
+            <td class="cell-mono">${p.peopleCount}</td>
+            <td class="cell-mono">${Math.round(p.totalHours)}h</td>
+            <td><div style="width:120px;height:8px;background:var(--surface3);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${barW}%;background:${projectColor(p.id)};border-radius:4px"></div>
+            </div></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  document.getElementById('reportBody').innerHTML = html;
+}
+
+// ─── RANGE CONTROLS ────────────────────────────────────────
+function setRange(preset) {
+  const today = getMonday(new Date());
+  document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('btn-active'));
+  event.target.classList.add('btn-active');
+
+  if (preset==='week') { rangeStart=today; rangeEnd=addDays(today,6); }
+  else if (preset==='2week') { rangeStart=addDays(today,-7); rangeEnd=addDays(today,13); }
+  else if (preset==='month') { rangeStart=addDays(today,-7); rangeEnd=addDays(today,27); }
+  else if (preset==='quarter') { rangeStart=addDays(today,-14); rangeEnd=addDays(today,76); }
+
+  document.getElementById('rangeFrom').value = formatDate(rangeStart);
+  document.getElementById('rangeTo').value = formatDate(rangeEnd);
+  refreshData();
+}
+
+function updateRange() {
+  rangeStart = parseDate(document.getElementById('rangeFrom').value) || rangeStart;
+  rangeEnd = parseDate(document.getElementById('rangeTo').value) || rangeEnd;
+  refreshData();
+}
+
+async function refreshData() {
+  document.getElementById('reportBody').innerHTML = '<div class="loading"><div class="spinner"></div>Calculating...</div>';
+  await loadReportData();
+  renderReports();
+}
+
+// ─── INIT ──────────────────────────────────────────────────
+async function init() {
+  if (!initAuth()) return;
+  try {
+    await loadReportData();
+    renderReports();
+  } catch(e) {
+    document.getElementById('reportBody').innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Error: ${e.message}</div></div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

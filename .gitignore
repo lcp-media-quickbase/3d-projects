@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (if we add build tooling later)
+node_modules/
+package-lock.json
+
+# Secrets - NEVER commit these
+*.token
+.env
+.env.*
+
+# Temp
+*.tmp
+*.bak

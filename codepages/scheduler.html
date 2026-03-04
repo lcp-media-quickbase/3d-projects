@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scheduler — LCP 3D Resource Manager</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* ── SCHEDULER-SPECIFIC ── */
+  :root {
+    --cell-w: 36px;
+    --row-h: 34px;
+    --label-w: 200px;
+    --gantt-radius: 4px;
+  }
+
+  .scheduler-layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Resource panel */
+  .resource-panel {
+    width: var(--label-w);
+    min-width: var(--label-w);
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+  }
+  .resource-header {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .resource-list { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+  .pod-group { border-bottom: 1px solid var(--border); }
+  .pod-header-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--surface2);
+  }
+  .pod-header-label .toggle {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text-dim);
+    transition: transform 0.2s;
+  }
+  .pod-header-label.collapsed .toggle { transform: rotate(-90deg); }
+
+  .resource-row {
+    display: flex;
+    align-items: center;
+    height: var(--row-h);
+    padding: 0 14px 0 28px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border-bottom: 1px solid rgba(42,45,58,0.5);
+  }
+  .resource-row:hover { background: var(--accent-dim); color: var(--text); }
+  .resource-row .avatar {
+    width: 20px; height: 20px; border-radius: 50%;
+    margin-right: 8px; display: flex; align-items: center;
+    justify-content: center; font-size: 9px; font-weight: 700;
+    color: #fff; flex-shrink: 0;
+  }
+
+  /* Timeline */
+  .timeline-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .timeline-header {
+    height: 52px;
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .timeline-months { display: flex; height: 22px; align-items: center; border-bottom: 1px solid rgba(42,45,58,0.5); }
+  .month-label {
+    font-size: 10px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px; padding-left: 8px;
+    white-space: nowrap; overflow: hidden;
+  }
+  .timeline-days { display: flex; height: 30px; align-items: center; }
+  .day-cell {
+    width: var(--cell-w); min-width: var(--cell-w);
+    text-align: center; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500; color: var(--text-dim);
+    line-height: 14px; user-select: none; padding-top: 2px;
+  }
+  .day-cell.today { color: var(--accent); font-weight: 700; }
+  .day-cell.weekend { opacity: 0.4; }
+  .day-cell .dow { display: block; font-size: 8px; color: var(--text-dim); opacity: 0.6; }
+
+  .timeline-body { flex: 1; overflow: auto; position: relative; }
+  .timeline-grid { position: relative; min-width: max-content; }
+
+  .grid-col {
+    position: absolute; top: 0; bottom: 0;
+    width: var(--cell-w); border-right: 1px solid rgba(42,45,58,0.3);
+  }
+  .grid-col.weekend { background: var(--weekend); }
+  .grid-col.today-col { background: var(--today); }
+
+  .timeline-row {
+    position: relative;
+    height: var(--row-h);
+    border-bottom: 1px solid rgba(42,45,58,0.3);
+  }
+  .timeline-row.pod-header-row { height: 33px; background: var(--surface2); }
+
+  .today-line {
+    position: absolute; top: 0; bottom: 0; width: 2px;
+    background: var(--accent); z-index: 15; pointer-events: none;
+  }
+  .today-line::before {
+    content: 'TODAY'; position: absolute; top: -16px; left: -16px;
+    font-size: 8px; font-weight: 700; letter-spacing: 0.5px;
+    color: var(--accent); background: var(--surface); padding: 1px 4px; border-radius: 2px;
+  }
+
+  /* Gantt bars */
+  .gantt-bar {
+    position: absolute; top: 4px; height: calc(var(--row-h) - 8px);
+    border-radius: var(--gantt-radius); font-size: 10px; font-weight: 500;
+    color: #fff; display: flex; align-items: center; padding: 0 6px;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    cursor: pointer; z-index: 5; transition: opacity 0.15s, transform 0.1s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .gantt-bar:hover {
+    opacity: 0.9; transform: scaleY(1.15); z-index: 20;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .gantt-bar .bar-text { overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+  .gantt-bar.priority-high { box-shadow: 0 0 0 1.5px var(--danger), 0 1px 3px rgba(0,0,0,0.3); }
+  .gantt-bar.weekend-bar { opacity: 0.6; border: 1px dashed rgba(255,255,255,0.3); }
+
+  .filter-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+  .date-display {
+    font-size: 14px; font-weight: 600; color: var(--text);
+    min-width: 180px; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<script src="shared.js"></script>
+<script>
+// ─── STATE ─────────────────────────────────────────────────
+let viewStart = getMonday(new Date());
+let viewDays = 14;
+let currentView = 'week';
+let people = [];
+let projects = [];
+let assignments = [];
+let milestones = [];
+let activePods = new Set();
+let collapsedPods = new Set();
+
+// ─── BUILD PAGE ────────────────────────────────────────────
+document.body.innerHTML = `
+  ${renderNav('scheduler')}
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title"><span>◆</span> Resource Scheduler</div>
+        <div class="filter-pills" id="podFilters"></div>
+      </div>
+      <div class="topbar-center">
+        <button class="btn btn-nav" onclick="navigate(-7)">◀</button>
+        <button class="btn" onclick="goToday()">Today</button>
+        <div class="date-display" id="dateDisplay"></div>
+        <button class="btn btn-nav" onclick="navigate(7)">▶</button>
+      </div>
+      <div class="topbar-right">
+        <div class="btn-group">
+          <button class="btn btn-active" id="btnWeek" onclick="setView('week')">2 Weeks</button>
+          <button class="btn" id="btnMonth" onclick="setView('month')">Month</button>
+        </div>
+        <button class="btn btn-primary" onclick="openNewAssignment()">+ Assignment</button>
+      </div>
+    </div>
+    <div class="scheduler-layout">
+      <div class="resource-panel">
+        <div class="resource-header">Team Members</div>
+        <div class="resource-list" id="resourceList"></div>
+      </div>
+      <div class="timeline-panel">
+        <div class="timeline-header">
+          <div class="timeline-months" id="timelineMonths"></div>
+          <div class="timeline-days" id="timelineDays"></div>
+        </div>
+        <div class="timeline-body" id="timelineBody">
+          <div class="timeline-grid" id="timelineGrid">
+            <div class="loading" id="loadingIndicator"><div class="spinner"></div>Loading assignments...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-item">Assignments: <span class="stat-value" id="statCount">0</span></div>
+      <div class="stat-item">People: <span class="stat-value" id="statPeople">0</span></div>
+      <div class="stat-item">Projects: <span class="stat-value" id="statProjects">0</span></div>
+    </div>
+  </div>
+  <div class="tooltip" id="tooltip"></div>
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h3 id="modalTitle">New Assignment</h3>
+      <div class="form-group"><label class="form-label">Person</label><select class="form-select" id="fldPerson"></select></div>
+      <div class="form-group"><label class="form-label">Project</label><select class="form-select" id="fldProject"></select></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="fldStart"></div>
+        <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="fldEnd"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Hours/Day</label><input class="form-input" type="number" id="fldHours" value="8" min="1" max="24" step="0.5"></div>
+        <div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="fldPriority"><option value="">—</option>${PRIORITIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Work Type</label><select class="form-select" id="fldWorkType"><option value="">—</option>${WORK_TYPES.map(w=>`<option>${w}</option>`).join('')}</select></div>
+        <div class="form-group"><label class="form-label">Draft Phase</label><select class="form-select" id="fldDraft"><option value="">—</option>${DRAFT_PHASES.map(d=>`<option>${d}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="fldDesc" rows="2"></textarea></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAssignment()">Save Assignment</button>
+      </div>
+    </div>
+  </div>
+`;
+
+// ─── DATA LOADING ──────────────────────────────────────────
+async function loadAssignments() {
+  const vStart = formatDate(viewStart);
+  const vEnd = formatDate(addDays(viewStart, viewDays));
+  const { records } = await qbQuery(TABLES.assignments,
+    [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
+     FIELD.ASSIGN.project, FIELD.ASSIGN.projectName, FIELD.ASSIGN.projectNum,
+     FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours, FIELD.ASSIGN.desc,
+     FIELD.ASSIGN.workType, FIELD.ASSIGN.draft, FIELD.ASSIGN.priority, FIELD.ASSIGN.weekend],
+    `{${FIELD.ASSIGN.end}.OAF.${vStart}}AND{${FIELD.ASSIGN.start}.BF.${vEnd}}`,
+    [{ fieldId: FIELD.ASSIGN.start, order: 'ASC' }], 2000);
+
+  assignments = records.map(r => ({
+    id: val(r,FIELD.ASSIGN.id), personKey: String(val(r,FIELD.ASSIGN.person)),
+    personName: val(r,FIELD.ASSIGN.personName), personPod: val(r,FIELD.ASSIGN.personPod),
+    projectId: val(r,FIELD.ASSIGN.project), projectName: val(r,FIELD.ASSIGN.projectName),
+    projectNum: val(r,FIELD.ASSIGN.projectNum), start: val(r,FIELD.ASSIGN.start),
+    end: val(r,FIELD.ASSIGN.end), hours: val(r,FIELD.ASSIGN.hours),
+    desc: val(r,FIELD.ASSIGN.desc), workType: val(r,FIELD.ASSIGN.workType),
+    draft: val(r,FIELD.ASSIGN.draft), priority: val(r,FIELD.ASSIGN.priority),
+    weekend: val(r,FIELD.ASSIGN.weekend)
+  }));
+}
+
+// ─── RENDERING ─────────────────────────────────────────────
+function getVisiblePeople() { return people.filter(p => activePods.has(p.pod)); }
+function getGroupedPeople() {
+  const groups = {};
+  getVisiblePeople().forEach(p => { (groups[p.pod] = groups[p.pod] || []).push(p); });
+  return groups;
+}
+
+function renderPodFilters() {
+  const pods = [...new Set(people.map(p => p.pod))];
+  document.getElementById('podFilters').innerHTML = pods.map(pod => {
+    const c = podColor(pod), active = activePods.has(pod);
+    return `<button class="pill ${active?'active':''}" onclick="togglePod('${pod}')"
+      style="${active?`border-color:${c};color:${c};background:${c}22`:''}">${pod.replace(' POD','')}</button>`;
+  }).join('');
+}
+
+function renderResourcePanel() {
+  const groups = getGroupedPeople();
+  let html = '';
+  for (const [pod, members] of Object.entries(groups)) {
+    const c = podColor(pod), collapsed = collapsedPods.has(pod);
+    html += `<div class="pod-group">
+      <div class="pod-header-label ${collapsed?'collapsed':''}" onclick="toggleCollapse('${pod}')" style="color:${c}">
+        <span class="dot" style="background:${c}"></span>
+        ${escapeHtml(pod)} <span style="font-weight:400;color:var(--text-dim);font-size:10px">(${members.length})</span>
+        <span class="toggle">▼</span>
+      </div>`;
+    if (!collapsed) {
+      members.forEach(m => {
+        const initials = m.name.split(' ').map(w=>w[0]||'').join('').slice(0,2);
+        html += `<div class="resource-row"><div class="avatar" style="background:${c}">${initials}</div>${escapeHtml(m.name)}</div>`;
+      });
+    }
+    html += `</div>`;
+  }
+  document.getElementById('resourceList').innerHTML = html;
+}
+
+function renderTimelineHeader() {
+  const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-w'));
+  const today = formatDate(new Date());
+  let monthsHtml='', daysHtml='', currentMonth=-1, monthSpan=0, monthLabel='';
+
+  for (let i=0; i<viewDays; i++) {
+    const d = addDays(viewStart, i), ds = formatDate(d);
+    const isToday = ds===today, isWe = d.getDay()===0||d.getDay()===6;
+    if (d.getMonth()!==currentMonth) {
+      if (monthSpan>0) monthsHtml += `<div class="month-label" style="width:${monthSpan*cellW}px">${monthLabel}</div>`;
+      currentMonth = d.getMonth(); monthLabel = MONTHS[d.getMonth()]+' '+d.getFullYear(); monthSpan=0;
+    }
+    monthSpan++;
+    daysHtml += `<div class="day-cell ${isToday?'today':''} ${isWe?'weekend':''}"><span class="dow">${DOW[d.getDay()]}</span>${d.getDate()}</div>`;
+  }
+  monthsHtml += `<div class="month-label" style="width:${monthSpan*cellW}px">${monthLabel}</div>`;
+  document.getElementById('timelineMonths').innerHTML = monthsHtml;
+  document.getElementById('timelineDays').innerHTML = daysHtml;
+}
+
+function renderTimeline() {
+  const grid = document.getElementById('timelineGrid');
+  const groups = getGroupedPeople();
+  const today = formatDate(new Date());
+  const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-w'));
+  const totalW = viewDays * cellW;
+  let html = '';
+
+  // Grid columns
+  for (let i=0; i<viewDays; i++) {
+    const d = addDays(viewStart, i), ds = formatDate(d);
+    const isWe = d.getDay()===0||d.getDay()===6;
+    html += `<div class="grid-col ${isWe?'weekend':''} ${ds===today?'today-col':''}" style="left:${i*cellW}px"></div>`;
+  }
+
+  // Today line
+  const todayDate = new Date(); todayDate.setHours(0,0,0,0);
+  const todayOff = Math.round((todayDate - viewStart)/86400000);
+  if (todayOff>=0 && todayOff<viewDays) html += `<div class="today-line" style="left:${todayOff*cellW+cellW/2}px"></div>`;
+
+  // Rows
+  let rowIdx = 0;
+  for (const [pod, members] of Object.entries(groups)) {
+    html += `<div class="timeline-row pod-header-row" style="top:${rowIdx*34}px;width:${totalW}px"></div>`;
+    rowIdx++;
+    if (!collapsedPods.has(pod)) {
+      members.forEach(m => {
+        html += `<div class="timeline-row" style="top:${rowIdx*34}px;width:${totalW}px">`;
+        assignments.filter(a => a.personKey === m.tdId).forEach(a => {
+          const aStart = parseDate(a.start), aEnd = parseDate(a.end);
+          if (!aStart||!aEnd) return;
+          const s = Math.max(0, Math.round((aStart-viewStart)/86400000));
+          const e = Math.min(viewDays-1, Math.round((aEnd-viewStart)/86400000));
+          if (e<0||s>=viewDays) return;
+          const left = s*cellW, width = (e-s+1)*cellW-2;
+          const color = projectColor(a.projectId);
+          const pri = a.priority==='High'?'priority-high':'';
+          const we = a.weekend?'weekend-bar':'';
+          const label = a.projectNum ? String(a.projectNum) : (a.projectName||'').slice(0,20);
+          const desc = a.desc && width>80 ? ' · '+a.desc : '';
+          html += `<div class="gantt-bar ${pri} ${we}" style="left:${left}px;width:${width}px;background:${color}"
+            onmouseenter="showTip(event,${a.id})" onmouseleave="hideTip()">
+            <span class="bar-text">${escapeHtml(label+desc)}</span></div>`;
+        });
+        html += `</div>`;
+        rowIdx++;
+      });
+    }
+  }
+  grid.style.width = totalW+'px';
+  grid.style.height = (rowIdx*34)+'px';
+  grid.innerHTML = html;
+
+  const uniqProj = new Set(assignments.map(a=>a.projectId));
+  document.getElementById('statCount').textContent = assignments.length;
+  document.getElementById('statPeople').textContent = getVisiblePeople().length;
+  document.getElementById('statProjects').textContent = uniqProj.size;
+}
+
+// ─── INTERACTIONS ──────────────────────────────────────────
+function showTip(event, id) {
+  const a = assignments.find(x=>x.id===id); if(!a) return;
+  const tip = document.getElementById('tooltip');
+  let h = `<div class="tooltip-title">${escapeHtml(a.projectName)}</div>`;
+  h += `<div class="tooltip-row"><span class="tooltip-label">Person</span><span class="tooltip-value">${escapeHtml(a.personName)||'—'}</span></div>`;
+  h += `<div class="tooltip-row"><span class="tooltip-label">Dates</span><span class="tooltip-value">${a.start} → ${a.end}</span></div>`;
+  h += `<div class="tooltip-row"><span class="tooltip-label">Hours</span><span class="tooltip-value">${a.hours}h/day</span></div>`;
+  if(a.workType) h+=`<div class="tooltip-row"><span class="tooltip-label">Type</span><span class="tooltip-value">${a.workType}</span></div>`;
+  if(a.draft) h+=`<div class="tooltip-row"><span class="tooltip-label">Phase</span><span class="tooltip-value">${a.draft}</span></div>`;
+  if(a.priority) h+=`<div class="tooltip-row"><span class="tooltip-label">Priority</span><span class="tooltip-value">${a.priority}</span></div>`;
+  if(a.desc) h+=`<div class="tooltip-desc">${escapeHtml(a.desc)}</div>`;
+  tip.innerHTML = h; tip.classList.add('visible');
+  const r = tip.getBoundingClientRect();
+  let x=event.clientX+12, y=event.clientY+12;
+  if(x+r.width>window.innerWidth) x=event.clientX-r.width-12;
+  if(y+r.height>window.innerHeight) y=event.clientY-r.height-12;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+}
+function hideTip() { document.getElementById('tooltip').classList.remove('visible'); }
+
+function togglePod(pod) {
+  activePods.has(pod)?activePods.delete(pod):activePods.add(pod);
+  renderPodFilters(); renderResourcePanel(); renderTimeline();
+}
+function toggleCollapse(pod) {
+  collapsedPods.has(pod)?collapsedPods.delete(pod):collapsedPods.add(pod);
+  renderResourcePanel(); renderTimeline();
+}
+
+function navigate(days) {
+  viewStart = addDays(viewStart, days);
+  updateDateDisplay(); renderTimelineHeader();
+  loadAssignments().then(renderTimeline);
+}
+function goToday() {
+  viewStart = getMonday(new Date());
+  updateDateDisplay(); renderTimelineHeader();
+  loadAssignments().then(renderTimeline);
+}
+function setView(v) {
+  currentView = v; viewDays = v==='week'?14:35;
+  document.getElementById('btnWeek').classList.toggle('btn-active', v==='week');
+  document.getElementById('btnMonth').classList.toggle('btn-active', v==='month');
+  document.documentElement.style.setProperty('--cell-w', v==='month'?'26px':'36px');
+  updateDateDisplay(); renderTimelineHeader();
+  loadAssignments().then(renderTimeline);
+}
+function updateDateDisplay() {
+  const end = addDays(viewStart, viewDays-1);
+  document.getElementById('dateDisplay').textContent =
+    `${MONTHS[viewStart.getMonth()]} ${viewStart.getDate()} — ${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+}
+
+// ─── MODAL ─────────────────────────────────────────────────
+function openNewAssignment() {
+  const ps = document.getElementById('fldPerson');
+  ps.innerHTML = '<option value="">Select person...</option>' +
+    people.map(p=>`<option value="${p.tdId}">${escapeHtml(p.name)} (${escapeHtml(p.pod)})</option>`).join('');
+  const pj = document.getElementById('fldProject');
+  pj.innerHTML = '<option value="">Select project...</option>' +
+    projects.map(p=>`<option value="${p.id}">${p.number?p.number+' ':''}${escapeHtml(p.name)}</option>`).join('');
+  document.getElementById('fldStart').value = formatDate(new Date());
+  document.getElementById('fldEnd').value = formatDate(addDays(new Date(),4));
+  document.getElementById('fldHours').value = 8;
+  document.getElementById('fldDesc').value = '';
+  document.getElementById('fldWorkType').value = '';
+  document.getElementById('fldDraft').value = '';
+  document.getElementById('fldPriority').value = '';
+  document.getElementById('modalOverlay').classList.add('visible');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('visible'); }
+
+async function saveAssignment() {
+  const person=document.getElementById('fldPerson').value, project=document.getElementById('fldProject').value;
+  const start=document.getElementById('fldStart').value, end=document.getElementById('fldEnd').value;
+  if(!person||!project||!start||!end) { showToast('Person, Project, Start and End are required','warning'); return; }
+  const record = {
+    [FIELD.ASSIGN.person]:{value:person}, [FIELD.ASSIGN.project]:{value:parseInt(project)},
+    [FIELD.ASSIGN.start]:{value:start}, [FIELD.ASSIGN.end]:{value:end},
+    [FIELD.ASSIGN.hours]:{value:parseFloat(document.getElementById('fldHours').value)||8},
+    [FIELD.ASSIGN.desc]:{value:document.getElementById('fldDesc').value},
+  };
+  const wt=document.getElementById('fldWorkType').value; if(wt) record[FIELD.ASSIGN.workType]={value:wt};
+  const dr=document.getElementById('fldDraft').value; if(dr) record[FIELD.ASSIGN.draft]={value:dr};
+  const pr=document.getElementById('fldPriority').value; if(pr) record[FIELD.ASSIGN.priority]={value:pr};
+  try { await qbUpsert(TABLES.assignments,[record]); closeModal(); showToast('Assignment created','success'); await loadAssignments(); renderTimeline(); }
+  catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// Scroll sync
+document.getElementById('timelineBody').addEventListener('scroll', function() {
+  document.getElementById('resourceList').scrollTop = this.scrollTop;
+});
+document.getElementById('resourceList').addEventListener('scroll', function() {
+  document.getElementById('timelineBody').scrollTop = this.scrollTop;
+});
+document.getElementById('modalOverlay').addEventListener('click', function(e) { if(e.target===this) closeModal(); });
+
+// ─── INIT ──────────────────────────────────────────────────
+async function init() {
+  if (!initAuth()) { document.getElementById('loadingIndicator').innerHTML='<span style="color:var(--danger)">No API token.</span>'; return; }
+  updateDateDisplay(); renderTimelineHeader();
+  try {
+    [people, projects] = await Promise.all([loadPeople(), loadProjects()]);
+    const pods = [...new Set(people.map(p=>p.pod))];
+    pods.forEach(p => activePods.add(p));
+    renderPodFilters(); renderResourcePanel();
+    await loadAssignments();
+    renderTimeline();
+  } catch(e) { document.getElementById('loadingIndicator').innerHTML=`<span style="color:var(--danger)">Error: ${e.message}</span>`; }
+}
+init();
+</script>
+</body>
+</html>
