@@ -46,6 +46,9 @@ let assignments = [];
 let rangeStart = addDays(getMonday(new Date()), -7);
 let rangeEnd = addDays(getMonday(new Date()), 13);
 
+// ─── AUTH (must run before renderNav) ──────────────────────
+initAuth();
+
 // ─── BUILD PAGE ────────────────────────────────────────────
 document.body.innerHTML = `
   ${renderNav('reports')}

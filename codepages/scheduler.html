@@ -179,8 +179,12 @@ let milestones = [];
 let activePods = new Set();
 let collapsedPods = new Set();
 
+// ─── AUTH (must run before renderNav) ──────────────────────
+initAuth();
+
 // ─── BUILD PAGE ────────────────────────────────────────────
 document.body.innerHTML = `
+  if (!initAuth()) { document.getElementById('loadingIndicator').innerHTML='<span style="color:var(--danger)">No API token.</span>'; return; }
   ${renderNav('scheduler')}
   <div class="main-content">
     <div class="topbar">
