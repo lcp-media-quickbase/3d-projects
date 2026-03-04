@@ -29,7 +29,7 @@ var schedulerCSS = `
 
   .scheduler-layout { display:flex; flex:1; overflow:hidden; }
   .resource-panel { width:220px; min-width:180px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); flex-shrink:0; }
-  .resource-header { height:70px; padding:8px 14px; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.8px; box-sizing:border-box; flex-shrink:0; }
+  .resource-header { height:52px; padding:8px 14px; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.8px; box-sizing:border-box; flex-shrink:0; }
   .search-input { width:100%; margin-top:6px; padding:5px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:5px; color:var(--text); font-size:12px; font-family:inherit; outline:none; box-sizing:border-box; text-transform:none; letter-spacing:normal; font-weight:400; }
   .search-input:focus { border-color:var(--accent); }
   .search-input::placeholder { color:var(--text-dim); }
@@ -46,7 +46,7 @@ var schedulerCSS = `
   .person-avatar { width:22px; height:22px; border-radius:50%; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:var(--accent); flex-shrink:0; }
 
   .timeline-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-  .timeline-header { height:70px; display:flex; flex-direction:column; justify-content:flex-end; border-bottom:1px solid var(--border); background:var(--surface); overflow:hidden; flex-shrink:0; }
+  .timeline-header { height:52px; display:flex; flex-direction:column; justify-content:flex-end; border-bottom:1px solid var(--border); background:var(--surface); overflow:hidden; flex-shrink:0; }
   .timeline-months { display:flex; height:22px; align-items:center; border-bottom:1px solid rgba(42,45,58,0.5); }
   .month-label { font-size:11px; font-weight:600; color:var(--text-dim); padding-left:8px; white-space:nowrap; overflow:hidden; }
   .timeline-days { display:flex; height:30px; align-items:stretch; }
@@ -112,7 +112,7 @@ function buildHTML() {
     </div>
     <div class="scheduler-layout">
       <div class="resource-panel">
-        <div class="resource-header">Team Members<input type="text" class="search-input" id="searchBox" placeholder="Search people or projects..." oninput="schedSearch(this.value)"></div>
+        <div class="resource-header">Team Members</div>
         <div class="resource-list" id="resourceList"></div>
       </div>
       <div class="timeline-panel">
