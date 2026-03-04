@@ -51,6 +51,38 @@ var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+
+// ─── THEME ─────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next === 'dark' ? '' : 'light');
+  if (next === 'dark') html.removeAttribute('data-theme');
+  else html.setAttribute('data-theme', 'light');
+  try { localStorage.setItem('lcp3d-theme', next); } catch(e) {}
+  const icon = document.getElementById('themeIcon');
+  const label = document.getElementById('themeLabel');
+  if (icon) icon.textContent = next === 'light' ? '🌙' : '☀️';
+  if (label) label.textContent = next === 'light' ? 'Dark Mode' : 'Light Mode';
+}
+// Restore saved theme
+(function() {
+  try {
+    var saved = localStorage.getItem('lcp3d-theme');
+    if (saved === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      // Update icon after DOM is ready
+      setTimeout(function() {
+        var icon = document.getElementById('themeIcon');
+        var label = document.getElementById('themeLabel');
+        if (icon) icon.textContent = '🌙';
+        if (label) label.textContent = 'Dark Mode';
+      }, 0);
+    }
+  } catch(e) {}
+})();
+
 // ─── AUTH ──────────────────────────────────────────────────
 var _authMode = null;   // 'session' | 'token'
 var _userToken = '';     // Only used in token mode
@@ -348,6 +380,12 @@ function renderNav(activePage) {
             <span class="nav-label">${p.label}</span>
           </a>
         `).join('')}
+      </div>
+      <div class="sidebar-bottom">
+        <button class="nav-item theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+          <span class="nav-icon" id="themeIcon">☀️</span>
+          <span class="nav-label" id="themeLabel">Light Mode</span>
+        </button>
       </div>
     </div>`;
 }
