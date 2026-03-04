@@ -93,7 +93,7 @@ function buildHTML() {
   return `
     <div class="sched-topbar">
       <div class="sched-topbar-left">
-        <div class="page-title"><span class="page-icon">'+ ICONS.scheduler +'</span> Scheduler</div>
+        <div class="page-title">Scheduler</div>
         <div class="filter-pills" id="podFilters"></div>
       </div>
       <div class="sched-topbar-center">
