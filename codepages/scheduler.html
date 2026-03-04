@@ -523,7 +523,7 @@ function openNewAssignment(prefillPerson, prefillDate) {
   document.getElementById('fldRecordId').value = '';
   document.getElementById('btnDelete').style.display = 'none';
   document.getElementById('fldPerson').value = prefillPerson || '';
-  document.getElementById('fldProject').value = '';
+  filterProjects();
   document.getElementById('fldStart').value = prefillDate || formatDate(new Date());
   document.getElementById('fldEnd').value = prefillDate ? formatDate(addDays(parseDate(prefillDate),4)) : formatDate(addDays(new Date(),4));
   document.getElementById('fldHours').value = 8;
