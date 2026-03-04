@@ -99,13 +99,14 @@ body {
   overflow: hidden;
   height: 100vh;
   display: flex;
+  flex-direction: column;
 }
 
 /* ── SIDEBAR NAV ── */
 .sidebar {
   width: var(--nav-w);
   min-width: var(--nav-w);
-  height: 100vh;
+  height: 100%;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
@@ -120,20 +121,7 @@ body {
   width: var(--nav-w-expanded);
 }
 
-.sidebar-logo {
-  width: 32px;
-  height: 32px;
-  background: var(--accent);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 14px;
-  color: #fff;
-  margin-bottom: 20px;
-  flex-shrink: 0;
-}
+.sidebar-logo { display: none; }
 
 .nav-items {
   display: flex;

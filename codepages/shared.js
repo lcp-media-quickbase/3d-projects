@@ -669,7 +669,6 @@ function renderDashboardNav() {
   var themeLabel = isLight ? 'Dark Mode' : 'Light Mode';
 
   return '<div class="sidebar">' +
-    '<div class="sidebar-logo">3D</div>' +
     '<div class="nav-items">' +
     tabs.map(function(t) {
       var icon = ICONS[t.id] || t.icon;
