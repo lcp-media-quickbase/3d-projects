@@ -27,7 +27,7 @@ function fetchRetry(url, n, d) {
 }
 
 // Step 1: Get version from version.json (cached at @main, small file)
-fetchRetry('https://raw.githubusercontent.com/' + REPO + '/main/codepages/version.json', 2, 1000)
+fetchRetry('https://raw.githubusercontent.com/' + REPO + '/main/codepages/version.json?_=' + Date.now(), 2, 1000)
   .then(function(r) { return r.json(); })
   .catch(function() { return { version: 'main' }; })
   .then(function(cfg) {
