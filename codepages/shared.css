@@ -342,7 +342,7 @@ body {
   justify-content: center;
 }
 .modal-overlay.visible { display: flex; }
-.modal {
+.modal, .modal-content {
   background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: 12px;
