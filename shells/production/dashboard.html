@@ -27,9 +27,10 @@ function fetchRetry(url, n, d) {
 }
 
 fetch('https://api.github.com/repos/' + REPO + '/tags?per_page=1')
-  .then(function(r) { return r.json(); })
+  .then(function(r) { return r.ok ? r.json() : []; })
+  .catch(function() { return []; })
   .then(function(tags) {
-    var v = (tags && tags[0]) ? tags[0].name : 'main';
+    var v = (Array.isArray(tags) && tags[0]) ? tags[0].name : 'main';
     window._cdnBase = 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + v + '/codepages';
     document.getElementById('loader').lastChild.textContent = 'Loading ' + v + '...';
     return Promise.all([
