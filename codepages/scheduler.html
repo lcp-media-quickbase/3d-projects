@@ -10,7 +10,7 @@
   :root {
     --cell-w: 36px;
     --row-h: 34px;
-    --label-w: 200px;
+    --label-w: 180px;
     --gantt-radius: 4px;
   }
 
@@ -49,7 +49,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 14px;
+    height: var(--row-h);
+    padding: 0 14px;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
@@ -57,6 +58,8 @@
     cursor: pointer;
     user-select: none;
     background: var(--surface2);
+    box-sizing: border-box;
+    border-bottom: 1px solid rgba(42,45,58,0.5);
   }
   .pod-header-label .toggle {
     margin-left: auto;
@@ -71,6 +74,7 @@
     align-items: center;
     height: var(--row-h);
     padding: 0 14px 0 28px;
+    box-sizing: border-box;
     font-size: 12px;
     font-weight: 500;
     color: var(--text-muted);
@@ -128,7 +132,7 @@
     height: var(--row-h);
     border-bottom: 1px solid rgba(42,45,58,0.3);
   }
-  .timeline-row.pod-header-row { height: 33px; background: var(--surface2); }
+  .timeline-row.pod-header-row { height: var(--row-h); background: var(--surface2); }
 
   .today-line {
     position: absolute; top: 0; bottom: 0; width: 2px;
@@ -310,8 +314,9 @@ function renderResourcePanel() {
       </div>`;
     if (!collapsed) {
       members.forEach(m => {
-        const initials = m.name.split(' ').map(w=>w[0]||'').join('').slice(0,2);
-        html += `<div class="resource-row"><div class="avatar" style="background:${c}">${initials}</div>${escapeHtml(m.name)}</div>`;
+        const nm = typeof m.name === 'string' ? m.name : (m.name?.toString?.() || 'Unknown');
+        const initials = nm.split(' ').map(w=>w[0]||'').join('').slice(0,2);
+        html += `<div class="resource-row"><div class="avatar" style="background:${c}">${initials}</div>${escapeHtml(nm)}</div>`;
       });
     }
     html += `</div>`;
@@ -343,7 +348,9 @@ function renderTimeline() {
   const grid = document.getElementById('timelineGrid');
   const groups = getGroupedPeople();
   const today = formatDate(new Date());
-  const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-w'));
+  const styles = getComputedStyle(document.documentElement);
+  const cellW = parseInt(styles.getPropertyValue('--cell-w'));
+  const rowH = parseInt(styles.getPropertyValue('--row-h'));
   const totalW = viewDays * cellW;
   let html = '';
 
@@ -362,11 +369,11 @@ function renderTimeline() {
   // Rows
   let rowIdx = 0;
   for (const [pod, members] of Object.entries(groups)) {
-    html += `<div class="timeline-row pod-header-row" style="top:${rowIdx*34}px;width:${totalW}px"></div>`;
+    html += `<div class="timeline-row pod-header-row" style="top:${rowIdx*rowH}px;width:${totalW}px"></div>`;
     rowIdx++;
     if (!collapsedPods.has(pod)) {
       members.forEach(m => {
-        html += `<div class="timeline-row" style="top:${rowIdx*34}px;width:${totalW}px">`;
+        html += `<div class="timeline-row" style="top:${rowIdx*rowH}px;width:${totalW}px">`;
         assignments.filter(a => a.personKey === m.tdId).forEach(a => {
           const aStart = parseDate(a.start), aEnd = parseDate(a.end);
           if (!aStart||!aEnd) return;
@@ -389,7 +396,7 @@ function renderTimeline() {
     }
   }
   grid.style.width = totalW+'px';
-  grid.style.height = (rowIdx*34)+'px';
+  grid.style.height = (rowIdx*rowH)+'px';
   grid.innerHTML = html;
 
   const uniqProj = new Set(assignments.map(a=>a.projectId));
@@ -421,7 +428,8 @@ function hideTip() { document.getElementById('tooltip').classList.remove('visibl
 
 function togglePod(pod) {
   activePods.has(pod)?activePods.delete(pod):activePods.add(pod);
-  renderPodFilters(); renderResourcePanel(); renderTimeline();
+  resizeCells(); renderPodFilters(); renderResourcePanel(); renderTimeline();
+  window.addEventListener('resize', () => { resizeCells(); renderTimelineHeader(); renderTimeline(); });
 }
 function toggleCollapse(pod) {
   collapsedPods.has(pod)?collapsedPods.delete(pod):collapsedPods.add(pod);
@@ -442,9 +450,17 @@ function setView(v) {
   currentView = v; viewDays = v==='week'?14:35;
   document.getElementById('btnWeek').classList.toggle('btn-active', v==='week');
   document.getElementById('btnMonth').classList.toggle('btn-active', v==='month');
-  document.documentElement.style.setProperty('--cell-w', v==='month'?'26px':'36px');
+  resizeCells();
   updateDateDisplay(); renderTimelineHeader();
   loadAssignments().then(renderTimeline);
+}
+function resizeCells() {
+  const panel = document.querySelector('.timeline-panel');
+  if (!panel) return;
+  const available = panel.clientWidth - 2; // minus border
+  const minW = currentView === 'month' ? 22 : 32;
+  const w = Math.max(minW, Math.floor(available / viewDays));
+  document.documentElement.style.setProperty('--cell-w', w + 'px');
 }
 function updateDateDisplay() {
   const end = addDays(viewStart, viewDays-1);

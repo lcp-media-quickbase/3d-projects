@@ -273,7 +273,12 @@ async function loadPods() {
 }
 
 // ─── UTILITIES ─────────────────────────────────────────────
-function val(record, fieldId) { return record[fieldId]?.value ?? ''; }
+function val(record, fieldId) {
+  const v = record[fieldId]?.value;
+  if (v == null) return '';
+  if (typeof v === 'object') return v.name || v.email || JSON.stringify(v);
+  return v;
+}
 function projectColor(id) { return PROJECT_COLORS[(id||0) % PROJECT_COLORS.length]; }
 function podColor(name) { return POD_COLORS[name] || '#868e96'; }
 
