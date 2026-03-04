@@ -6,7 +6,7 @@ registerTab('reports', {
     document.getElementById('tab-reports').innerHTML =
       '<div class="sched-topbar" style="border-bottom:1px solid var(--border);flex-shrink:0"><div class="sched-topbar-left"><div class="page-title"><span>📊</span> Reports</div></div></div>' +
       '<div style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--text-dim)">' +
-        '<div style="font-size:40px;margin-bottom:12px">📊</div>' +
+        '<div style="margin-bottom:12px;color:var(--text-dim)">' + ICONS.reports + '</div>' +
         '<div style="font-size:14px">Utilization reports and capacity analysis coming soon.</div></div>';
   }
 });
