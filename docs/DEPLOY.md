@@ -56,7 +56,7 @@ git push -u origin nick/add-drag-drop
 
 **Manual jsDelivr cache purge:**
 ```
-https://purge.jsdelivr.net/gh/lcp-media-quickbase/project-management@staging/codepages/scheduler.html
+https://purge.jsdelivr.net/gh/lcp-media-quickbase/3d-projects@staging/codepages/scheduler.html
 ```
 
 ### Deploying to Production
@@ -68,9 +68,9 @@ https://purge.jsdelivr.net/gh/lcp-media-quickbase/project-management@staging/cod
 
 **Purge production cache:**
 ```
-https://purge.jsdelivr.net/gh/lcp-media-quickbase/project-management@main/codepages/scheduler.html
-https://purge.jsdelivr.net/gh/lcp-media-quickbase/project-management@main/codepages/shared.js
-https://purge.jsdelivr.net/gh/lcp-media-quickbase/project-management@main/codepages/shared.css
+https://purge.jsdelivr.net/gh/lcp-media-quickbase/3d-projects@main/codepages/scheduler.html
+https://purge.jsdelivr.net/gh/lcp-media-quickbase/3d-projects@main/codepages/shared.js
+https://purge.jsdelivr.net/gh/lcp-media-quickbase/3d-projects@main/codepages/shared.css
 ```
 
 ## Troubleshooting

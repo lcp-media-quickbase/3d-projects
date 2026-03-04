@@ -16,11 +16,11 @@ iframe{width:100%;height:100%;border:none}
 <div class="loader" id="loader"><div class="spinner"></div>Loading...</div>
 <script>
 // QB Code Page shell — loads full page from GitHub via jsDelivr CDN
-// Source: https://github.com/lcp-media-quickbase/project-management/blob/main/codepages/timesheets.html
+// Source: https://github.com/lcp-media-quickbase/3d-projects/blob/main/codepages/timesheets.html
 //
 // Cache bust every 5 min during dev. For stable production, remove ?_t param.
 var cacheBust = '?_t=' + Math.floor(Date.now() / 300000);
-var cdn = 'https://cdn.jsdelivr.net/gh/lcp-media-quickbase/project-management@main/codepages';
+var cdn = 'https://cdn.jsdelivr.net/gh/lcp-media-quickbase/3d-projects@main/codepages';
 
 Promise.all([
   fetch(cdn + '/shared.css' + cacheBust).then(r => r.text()),
@@ -84,7 +84,7 @@ Promise.all([
 }).catch(function(e) {
   document.getElementById('loader').innerHTML =
     '<div style="color:#ff4757;font-size:14px">Failed to load: ' + e.message + '</div>' +
-    '<div style="color:#565a6e;font-size:12px;margin-top:8px">Source: github.com/lcp-media-quickbase/project-management</div>';
+    '<div style="color:#565a6e;font-size:12px;margin-top:8px">Source: github.com/lcp-media-quickbase/3d-projects</div>';
 });
 </script>
 </body>

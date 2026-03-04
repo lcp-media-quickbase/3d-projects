@@ -48,7 +48,7 @@ feature branches (nick/*, etc.)   → localhost (local dev)          → N/A
 ### Local Development
 
 ```bash
-git clone https://github.com/lcp-media-quickbase/project-management.git
+git clone https://github.com/lcp-media-quickbase/3d-projects.git
 cd project-management/codepages
 # Open any HTML file in browser
 # It will prompt for a QB User Token (get from QB > My Preferences > User Token)
