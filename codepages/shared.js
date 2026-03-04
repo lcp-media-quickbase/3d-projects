@@ -456,6 +456,28 @@ toastStyle.textContent = '@keyframes toastIn { from { transform:translateY(10px)
 document.head.appendChild(toastStyle);
 
 
+
+// ─── TICKET SYSTEM ───────────────────────────────────────────
+var TICKET_APP = 'btnit6q26';
+var TICKET_TABLE = 'btnit9gpf';
+var TICKET_FIELD = {
+  subject: 6,
+  details: 7,
+  ticketType: 11,
+  priority: 12,
+  system: 13,
+  requestedBy: 14,
+  contactEmail: 15,
+  department: 16,
+  additionalPeople: 17,
+  webLink: 21
+};
+
+var TICKET_TYPES = ['General Request','Bug Report','Feature Request','Access Request','Data Issue','Other'];
+var TICKET_PRIORITIES = ['01-Critical','02-High','03-Medium','04-Low'];
+var TICKET_SYSTEMS = ['QuickBase','Make.com','TeamDeck','Dropbox','Google Workspace','Other'];
+var TICKET_DEPARTMENTS = ['3D Production','Photography','Post Production','Operations','Sales','Marketing','IT','Other'];
+
 // ─── ROLE DETECTION ──────────────────────────────────────────
 var ROLE = {
   VIEWER: 10,
@@ -712,9 +734,118 @@ function renderAppHeader() {
 }
 
 function openTicket() {
-  // Can be configured to open a QB form, email, or external URL
-  var url = 'https://lcpmedia.quickbase.com/db/bu8tkk77g?a=nwr';
-  window.open(url, '_blank');
+  var user = currentUser();
+  var html = '<div class="ticket-form">' +
+    '<div class="ticket-header">' +
+      '<div class="ticket-header-icon">' + ICONS.quotes + '</div>' +
+      '<div><div class="ticket-header-title">Submit a Ticket</div>' +
+      '<div class="ticket-header-sub">Describe your issue or request and our team will follow up.</div></div>' +
+    '</div>' +
+
+    '<div class="ticket-section">' +
+      '<div class="ticket-section-label">What do you need?</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group" style="flex:2"><label class="form-label">Subject</label>' +
+          '<input class="form-input" id="tktSubject" placeholder="Brief summary of your request"></div>' +
+        '<div class="form-group" style="flex:1"><label class="form-label">Type</label>' +
+          '<select class="form-select" id="tktType">' + TICKET_TYPES.map(function(t){return '<option>'+t+'</option>';}).join('') + '</select></div>' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group" style="flex:1"><label class="form-label">Priority</label>' +
+          '<select class="form-select" id="tktPriority">' + TICKET_PRIORITIES.map(function(p){return '<option'+(p==='04-Low'?' selected':'')+'>'+p+'</option>';}).join('') + '</select></div>' +
+        '<div class="form-group" style="flex:1"><label class="form-label">System</label>' +
+          '<select class="form-select" id="tktSystem"><option value="">Select...</option>' + TICKET_SYSTEMS.map(function(s){return '<option>'+s+'</option>';}).join('') + '</select></div>' +
+        '<div class="form-group" style="flex:1"><label class="form-label">Department</label>' +
+          '<select class="form-select" id="tktDept"><option value="">Select...</option>' + TICKET_DEPARTMENTS.map(function(d){return '<option>'+d+'</option>';}).join('') + '</select></div>' +
+      '</div>' +
+      '<div class="form-group"><label class="form-label">Details</label>' +
+        '<textarea class="form-textarea" id="tktDetails" rows="5" placeholder="Describe the issue, steps to reproduce, or what you need..."></textarea></div>' +
+    '</div>' +
+
+    '<div class="ticket-section">' +
+      '<div class="ticket-section-label">Contact Info</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group"><label class="form-label">Requested For / By</label>' +
+          '<input class="form-input" id="tktRequestedBy" value="' + escapeHtml(user.email) + '"></div>' +
+        '<div class="form-group"><label class="form-label">Contact Email</label>' +
+          '<input class="form-input" type="email" id="tktEmail" value="' + escapeHtml(user.email) + '"></div>' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group"><label class="form-label">Additional People Affected</label>' +
+          '<input class="form-input" id="tktAdditional" placeholder="Names or emails of others affected"></div>' +
+        '<div class="form-group"><label class="form-label">Web Link</label>' +
+          '<input class="form-input" type="url" id="tktWebLink" placeholder="https://..."></div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="ticket-actions">' +
+      '<button class="btn" onclick="closeTicketModal()">Cancel</button>' +
+      '<button class="btn btn-primary" onclick="submitTicket()" id="tktSubmitBtn">' +
+        '<span id="tktSubmitText">Submit Ticket</span></button>' +
+    '</div>' +
+  '</div>';
+
+  var overlay = document.getElementById('ticketOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'ticketOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) closeTicketModal(); };
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = '<div class="modal-content ticket-modal">' + html + '</div>';
+  overlay.classList.add('visible');
+  setTimeout(function() { document.getElementById('tktSubject').focus(); }, 100);
+}
+
+function closeTicketModal() {
+  var overlay = document.getElementById('ticketOverlay');
+  if (overlay) overlay.classList.remove('visible');
+}
+
+async function submitTicket() {
+  var subject = document.getElementById('tktSubject').value.trim();
+  if (!subject) { showToast('Subject is required', 'warning'); return; }
+
+  var btn = document.getElementById('tktSubmitBtn');
+  var btnText = document.getElementById('tktSubmitText');
+  btn.disabled = true;
+  btnText.textContent = 'Submitting...';
+
+  var record = {};
+  record[TICKET_FIELD.subject] = {value: subject};
+  record[TICKET_FIELD.details] = {value: document.getElementById('tktDetails').value};
+  record[TICKET_FIELD.ticketType] = {value: document.getElementById('tktType').value};
+  record[TICKET_FIELD.priority] = {value: document.getElementById('tktPriority').value};
+  var sys = document.getElementById('tktSystem').value;
+  if (sys) record[TICKET_FIELD.system] = {value: sys};
+  var dept = document.getElementById('tktDept').value;
+  if (dept) record[TICKET_FIELD.department] = {value: dept};
+  record[TICKET_FIELD.requestedBy] = {value: document.getElementById('tktRequestedBy').value};
+  record[TICKET_FIELD.contactEmail] = {value: document.getElementById('tktEmail').value};
+  var addl = document.getElementById('tktAdditional').value;
+  if (addl) record[TICKET_FIELD.additionalPeople] = {value: addl};
+  var link = document.getElementById('tktWebLink').value;
+  if (link) record[TICKET_FIELD.webLink] = {value: link};
+
+  try {
+    var resp = await fetch('https://lcpmedia.quickbase.com/v1/records', {
+      method: 'POST',
+      headers: _qbHeaders(),
+      credentials: _authMode === 'session' ? 'include' : undefined,
+      body: JSON.stringify({ to: TICKET_TABLE, data: [record] })
+    });
+    if (!resp.ok) {
+      var err = await resp.json().catch(function(){return {};});
+      throw new Error(err.description || err.message || 'API error ' + resp.status);
+    }
+    closeTicketModal();
+    showToast('Ticket submitted successfully', 'success');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+    btn.disabled = false;
+    btnText.textContent = 'Submit Ticket';
+  }
 }
 
 function renderTabContainers() {
