@@ -462,21 +462,21 @@ var TICKET_APP = 'btnit6q26';
 var TICKET_TABLE = 'btnit9gpf';
 var TICKET_FIELD = {
   subject: 6,
-  details: 7,
-  ticketType: 11,
-  priority: 12,
-  system: 13,
-  requestedBy: 14,
-  contactEmail: 15,
-  department: 16,
-  additionalPeople: 17,
-  webLink: 21
+  details: 10,
+  ticketType: 7,
+  priority: 9,
+  system: 8,
+  requestedBy: 19,
+  contactEmail: 22,
+  department: 20,
+  additionalPeople: 23,
+  webLink: 38
 };
 
-var TICKET_TYPES = ['General Request','Bug Report','Feature Request','Access Request','Data Issue','Other'];
-var TICKET_PRIORITIES = ['01-Critical','02-High','03-Medium','04-Low'];
-var TICKET_SYSTEMS = ['QuickBase','Make.com','TeamDeck','Dropbox','Google Workspace','Other'];
-var TICKET_DEPARTMENTS = ['3D Production','Photography','Post Production','Operations','Sales','Marketing','IT','Other'];
+var TICKET_TYPES = ['General Request','Bug Report','Feature Request','Security Issue','Major Development','Future Development','Idea for Improvment'];
+var TICKET_PRIORITIES = ['04-Low','03-Medium','02-High','01-Critical'];
+var TICKET_SYSTEMS = ['QuickBase','HubSpot','ClickUp','Misc API.','Other'];
+var TICKET_DEPARTMENTS = ['3D','Accounting','Business Process','Client Success','Development','Executive Team','Marketing','Operations','Production','Sales Team'];
 
 // ─── ROLE DETECTION ──────────────────────────────────────────
 var ROLE = {
@@ -831,8 +831,11 @@ async function submitTicket() {
   try {
     var resp = await fetch('https://lcpmedia.quickbase.com/v1/records', {
       method: 'POST',
-      headers: _qbHeaders(),
-      credentials: _authMode === 'session' ? 'include' : undefined,
+      headers: {
+        'QB-Realm-Hostname': 'lcpmedia.quickbase.com',
+        'Authorization': 'QB-USER-TOKEN b9ytiq_f9q7_0_chzcq48b95rhwnbqt4b6jfiuyp',
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ to: TICKET_TABLE, data: [record] })
     });
     if (!resp.ok) {
