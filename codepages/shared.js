@@ -10,9 +10,9 @@
    ═══════════════════════════════════════════════════════════ */
 
 // ─── CONFIG ────────────────────────────────────────────────
-const QB_REALM = 'lcpmedia.quickbase.com';
-const QB_APP = 'bu8tkk77g';
-const TABLES = {
+var QB_REALM = 'lcpmedia.quickbase.com';
+var QB_APP = 'bu8tkk77g';
+var TABLES = {
   assignments: 'bvu4s9te6',
   people: 'bu8ttwq2f',
   projects: 'bvaitp9x5',
@@ -20,7 +20,7 @@ const TABLES = {
   pods: 'bu8tt69gx'
 };
 
-const FIELD = {
+var FIELD = {
   ASSIGN: { id:3, person:6, personName:7, personEmail:8, personPod:9,
     project:10, projectName:11, projectNum:12, projectStage:13, projectPod:14,
     start:15, end:16, hours:17, desc:18, workType:19, draft:20,
@@ -31,33 +31,33 @@ const FIELD = {
   PODS: { id:3, name:6, tdId:11 }
 };
 
-const POD_COLORS = {
+var POD_COLORS = {
   'Max POD':'#ff6b6b', 'Polina POD':'#ffa94d', 'Grzegorz POD':'#69db7c',
   'Evgeniy POD':'#6c8cff', 'George POD':'#cc5de8', 'Polish office':'#868e96',
   'TourBuilder':'#20c997'
 };
 
-const PROJECT_COLORS = [
+var PROJECT_COLORS = [
   '#4dabf7','#69db7c','#ffa94d','#ff6b6b','#cc5de8','#20c997','#ffd43b',
   '#748ffc','#f783ac','#63e6be','#a9e34b','#e599f7','#74c0fc','#ffa8a8',
   '#8ce99a','#ffe066','#b197fc','#66d9e8','#fab005','#ff8787'
 ];
 
-const WORK_TYPES = ['Modelling','GreyScale','FloorPlans','Animatic','SiteMap','Extra'];
-const DRAFT_PHASES = ['Draft 1','Draft 2','Final','Animation','Extra 1','Extra 2','Extra 3','Extra 4'];
-const PRIORITIES = ['High','Medium','Low'];
-const PROJECT_STAGES = ['Pre-Production','In Production','Complete'];
-const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var WORK_TYPES = ['Modelling','GreyScale','FloorPlans','Animatic','SiteMap','Extra'];
+var DRAFT_PHASES = ['Draft 1','Draft 2','Final','Animation','Extra 1','Extra 2','Extra 3','Extra 4'];
+var PRIORITIES = ['High','Medium','Low'];
+var PROJECT_STAGES = ['Pre-Production','In Production','Complete'];
+var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 // ─── AUTH ──────────────────────────────────────────────────
-let _authMode = null;   // 'session' | 'token'
-let _userToken = '';     // Only used in token mode
+var _authMode = null;   // 'session' | 'token'
+var _userToken = '';     // Only used in token mode
 
 // Temp token cache: { tableId: { token, expiresAt } }
-const _tempTokens = {};
-const TEMP_TOKEN_LIFETIME = 4 * 60 * 1000; // Refresh at 4 min (expires at 5)
+var _tempTokens = {};
+var TEMP_TOKEN_LIFETIME = 4 * 60 * 1000; // Refresh at 4 min (expires at 5)
 
 /**
  * Detect environment and set auth mode.
@@ -365,6 +365,6 @@ function showToast(message, type='info') {
   setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity 0.3s'; setTimeout(()=>toast.remove(),300); }, 3000);
 }
 
-const toastStyle = document.createElement('style');
+var toastStyle = document.createElement('style');
 toastStyle.textContent = '@keyframes toastIn { from { transform:translateY(10px);opacity:0 } to { transform:translateY(0);opacity:1 } }';
 document.head.appendChild(toastStyle);
