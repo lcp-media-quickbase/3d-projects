@@ -31,17 +31,24 @@
     z-index: 10;
   }
   .resource-header {
-    height: 52px;
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
+    padding: 8px 14px;
     border-bottom: 1px solid var(--border);
     font-size: 11px;
     font-weight: 600;
     color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 0.8px;
+    box-sizing: border-box;
   }
+  .search-input {
+    width: 100%; margin-top: 6px; padding: 5px 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 5px; color: var(--text); font-size: 12px;
+    font-family: inherit; outline: none; box-sizing: border-box;
+    text-transform: none; letter-spacing: normal; font-weight: 400;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text-dim); }
   .resource-list { flex: 1; overflow-y: auto; overflow-x: hidden; }
 
   .pod-group { }
@@ -92,7 +99,7 @@
   .timeline-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
   .timeline-header {
-    height: 52px;
+    min-height: 52px;
     display: flex;
     flex-direction: column;
     border-bottom: 1px solid var(--border);
@@ -193,6 +200,7 @@ let assignments = [];
 let milestones = [];
 let activePods = new Set();
 let collapsedPods = new Set();
+var searchQuery = '';
 
 // ─── AUTH (must run before renderNav) ──────────────────────
 initAuth();
@@ -222,7 +230,7 @@ document.body.innerHTML = `
     </div>
     <div class="scheduler-layout">
       <div class="resource-panel">
-        <div class="resource-header">Team Members</div>
+        <div class="resource-header">Team Members<input type="text" class="search-input" id="searchBox" placeholder="Search people or projects..." oninput="onSearch(this.value)"></div>
         <div class="resource-list" id="resourceList"></div>
       </div>
       <div class="timeline-panel">
@@ -300,11 +308,33 @@ async function loadAssignments() {
 }
 
 // ─── RENDERING ─────────────────────────────────────────────
-function getVisiblePeople() { return people.filter(p => activePods.has(p.pod)); }
+function getVisiblePeople() {
+  return people.filter(function(p) {
+    if (!activePods.has(p.pod)) return false;
+    if (!searchQuery) return true;
+    var q = searchQuery.toLowerCase();
+    if (p.name.toLowerCase().includes(q)) return true;
+    var pa = assignments.filter(function(a) { return a.personKey === String(p.tdId); });
+    return pa.some(function(a) {
+      return (a.projectName && a.projectName.toLowerCase().includes(q)) ||
+             (a.projectNum && String(a.projectNum).includes(q));
+    });
+  });
+}
 function getGroupedPeople() {
   const groups = {};
   getVisiblePeople().forEach(p => { (groups[p.pod] = groups[p.pod] || []).push(p); });
   return groups;
+}
+
+var _searchTimer = null;
+function onSearch(val) {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(function() {
+    searchQuery = val.trim();
+    renderResourcePanel();
+    renderTimeline();
+  }, 150);
 }
 
 function renderPodFilters() {
