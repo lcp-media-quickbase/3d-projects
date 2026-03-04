@@ -610,17 +610,18 @@ async function switchTab(id) {
     return;
   }
 
-  // Deactivate current
-  if (_activeTab && _tabs[_activeTab]) {
-    var el = document.getElementById('tab-' + _activeTab);
-    if (el) el.style.display = 'none';
-    if (_tabs[_activeTab].onDeactivate) _tabs[_activeTab].onDeactivate();
+  // Hide ALL tabs first
+  document.querySelectorAll('.tab-content').forEach(function(el) { el.style.display = 'none'; });
+  if (_activeTab && _tabs[_activeTab] && _tabs[_activeTab].onDeactivate) {
+    _tabs[_activeTab].onDeactivate();
   }
 
   // Activate target
   var container = document.getElementById('tab-' + id);
-  if (container) container.style.display = '';
+  if (container) container.style.display = 'flex';
 
+  container.style.flexDirection = 'column';
+  container.style.overflow = 'hidden';
   if (!tab.initialized && tab.onInit) {
     await tab.onInit();
     tab.initialized = true;

@@ -66,16 +66,15 @@ fetchRetry('https://cdn.jsdelivr.net/gh/' + REPO + '@main/codepages/version.json
     var s1 = document.createElement('script'); s1.textContent = js; document.body.appendChild(s1);
     if (scripts[0]) { var s2 = document.createElement('script'); s2.textContent = scripts[0]; document.body.appendChild(s2); }
 
-    var chain = Promise.resolve();
-    srcScripts.forEach(function(src) {
-      chain = chain.then(function() {
-        return fetchRetry(CDN + '/' + src, 2, 1000).then(function(r){return r.text();});
-      }).then(function(code) {
+    // Fetch all tab scripts in parallel
+    return Promise.all(srcScripts.map(function(src) {
+      return fetchRetry(CDN + '/' + src, 2, 1000).then(function(r){return r.text();});
+    })).then(function(tabCodes) {
+      // Execute in order
+      tabCodes.forEach(function(code) {
         var s = document.createElement('script'); s.textContent = code; document.body.appendChild(s);
       });
-    });
-
-    return chain.then(function() {
+      // Run remaining inline scripts (buildDashboard)
       for (var i = 1; i < scripts.length; i++) {
         var s = document.createElement('script'); s.textContent = scripts[i]; document.body.appendChild(s);
       }
