@@ -134,8 +134,9 @@ body {
 .nav-item {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 0;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s;
@@ -144,6 +145,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
 }
+.sidebar:hover .nav-item { justify-content: flex-start; padding: 10px 12px; }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--accent-dim); color: var(--accent); }
 
@@ -248,6 +250,7 @@ body {
 .btn-group .btn:last-child { border-radius: 0 6px 6px 0; }
 
 /* ── PILLS / BADGES ── */
+.filter-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .pill {
   padding: 3px 10px;
   border-radius: 12px;

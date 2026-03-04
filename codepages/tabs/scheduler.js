@@ -41,7 +41,7 @@ var schedulerCSS = `
   .pod-count { font-size:10px; color:var(--text-dim); font-weight:400; }
   .pod-collapse { font-size:10px; color:var(--text-dim); margin-left:auto; }
 
-  .person-row { height:var(--row-h); display:flex; align-items:center; padding:0 14px 0 28px; gap:8px; font-size:12px; color:var(--text-muted); }
+  .person-row { height:var(--row-h); display:flex; align-items:center; padding:0 14px 0 28px; gap:8px; font-size:12px; color:var(--text-muted); border-bottom:1px solid rgba(255,255,255,0.03); }
   .person-avatar { width:22px; height:22px; border-radius:50%; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:var(--accent); flex-shrink:0; }
 
   .timeline-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -62,7 +62,7 @@ var schedulerCSS = `
   .grid-col.weekend { background:rgba(255,255,255,0.015); }
   .grid-col.today { background:var(--accent-dim); }
 
-  .timeline-row { height:var(--row-h); position:relative; box-sizing:border-box; }
+  .timeline-row { height:var(--row-h); position:relative; box-sizing:border-box; border-bottom:1px solid rgba(255,255,255,0.03); }
   .timeline-row.pod-header-row { border-bottom:none; }
 
   .gantt-bar { position:absolute; top:4px; height:calc(var(--row-h) - 8px); border-radius:4px; font-size:10px; color:#fff; display:flex; align-items:center; overflow:hidden; white-space:nowrap; padding:0; text-shadow:0 1px 2px rgba(0,0,0,0.3); z-index:2; }
@@ -570,7 +570,8 @@ registerTab('scheduler', {
     sProjects = await getCachedProjects();
     var pods = []; var seen = {};
     sPeople.forEach(function(p) { if (!seen[p.pod]) { seen[p.pod]=true; pods.push(p.pod); } });
-    pods.forEach(function(p) { activePods.add(p); });
+    var defaultOff = ['Polish office', 'TourBuilder'];
+    pods.forEach(function(p) { if (defaultOff.indexOf(p) === -1) activePods.add(p); });
 
     resizeCells();
     window.addEventListener('resize', function() { resizeCells(); renderTimelineHeader(); renderTimeline(); });
