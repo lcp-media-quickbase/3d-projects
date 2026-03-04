@@ -55,17 +55,20 @@ const MONTHS_FULL = ['January','February','March','April','May','June','July','A
 let _authMode = null;   // 'session' | 'token'
 let _userToken = '';     // Only used in token mode
 
+// Temp token cache: { tableId: { token, expiresAt } }
+const _tempTokens = {};
+const TEMP_TOKEN_LIFETIME = 4 * 60 * 1000; // Refresh at 4 min (expires at 5)
+
 /**
  * Detect environment and set auth mode.
  * 
- * Same-origin (QB Code Page on lcpmedia.quickbase.com):
- *   → fetch() with credentials:'include' sends session cookies
- *   → QB REST API authenticates via session, no token needed
- *   → Data access = logged-in user's role permissions
- *   → Admins see everything, viewers see their filtered view
- *   → Write operations respect the user's add/edit/delete rights
+ * QB Code Page (on *.quickbase.com):
+ *   → Uses getTempTokenDBID endpoint to get per-table temp tokens
+ *   → withCredentials:true sends QB session cookie to api.quickbase.com
+ *   → Temp tokens scoped to logged-in user's permissions
+ *   → Tokens auto-refresh every 4 minutes (5 min expiry)
  *
- * Cross-origin (local dev, different domain):
+ * Local dev / standalone:
  *   → Requires explicit QB-USER-TOKEN
  *   → Data access = token owner's permissions
  */
@@ -76,7 +79,7 @@ function initAuth() {
 
   if (isQBOrigin) {
     _authMode = 'session';
-    console.log('[Auth] QB Code Page detected — using session credentials.');
+    console.log('[Auth] QB Code Page detected — using temporary tokens.');
     console.log('[Auth] Data access governed by logged-in user\'s role permissions.');
     return true;
   }
@@ -100,40 +103,82 @@ function initAuth() {
   return false;
 }
 
-/** Build request headers based on auth mode */
-function _qbHeaders() {
+/**
+ * Get a temporary token for a specific table.
+ * QB REST API requires per-table temp tokens when using session auth.
+ * Tokens are cached and auto-refreshed before expiry.
+ */
+async function _getTempToken(tableId) {
+  const cached = _tempTokens[tableId];
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.token;
+  }
+
+  const resp = await fetch(
+    `https://api.quickbase.com/v1/auth/temporary/${tableId}`,
+    {
+      method: 'GET',
+      headers: {
+        'QB-Realm-Hostname': QB_REALM,
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include'  // Sends QB session cookie cross-origin
+    }
+  );
+
+  if (!resp.ok) {
+    if (resp.status === 401) {
+      showToast('Session expired — please refresh the page.', 'error');
+    }
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.message || `Auth error ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const token = data.temporaryAuthorization;
+
+  _tempTokens[tableId] = {
+    token,
+    expiresAt: Date.now() + TEMP_TOKEN_LIFETIME
+  };
+
+  console.log(`[Auth] Temp token acquired for table ${tableId}`);
+  return token;
+}
+
+/** Build request headers for a specific table */
+async function _qbHeaders(tableId) {
   const headers = {
     'QB-Realm-Hostname': QB_REALM,
     'Content-Type': 'application/json'
   };
-  if (_authMode === 'token' && _userToken) {
+
+  if (_authMode === 'session') {
+    const tempToken = await _getTempToken(tableId);
+    headers['Authorization'] = 'QB-TEMP-TOKEN ' + tempToken;
+  } else if (_authMode === 'token' && _userToken) {
     headers['Authorization'] = 'QB-USER-TOKEN ' + _userToken;
   }
-  // Session mode: no auth header needed — cookies carry the session
+
   return headers;
 }
 
-/** Fetch options with credentials policy */
-function _fetchOpts(method, body) {
-  const opts = {
-    method,
-    headers: _qbHeaders()
-  };
+/** Build fetch options for a specific table */
+async function _fetchOpts(method, body, tableId) {
+  const headers = await _qbHeaders(tableId);
+  const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
-
-  if (_authMode === 'session') {
-    // include = send cookies even for same-origin (ensures session auth)
-    opts.credentials = 'include';
-  }
   return opts;
 }
 
 /** Handle API error responses with user-friendly messages */
-async function _handleError(resp) {
+async function _handleError(resp, tableId) {
   const err = await resp.json().catch(() => ({}));
   const msg = err.description || err.message || `API error ${resp.status}`;
 
   if (resp.status === 401) {
+    // Clear cached token and retry hint
+    if (tableId) delete _tempTokens[tableId];
     showToast('Session expired — please refresh the page.', 'error');
   } else if (resp.status === 403) {
     showToast('Permission denied — your role doesn\'t allow this action.', 'error');
@@ -148,10 +193,10 @@ async function qbQuery(tableId, select, where, sortBy, top=500, skip=0) {
   if (sortBy) body.sortBy = sortBy;
 
   const resp = await fetch(
-    `https://${QB_REALM}/v1/records/query`,
-    _fetchOpts('POST', body)
+    `https://api.quickbase.com/v1/records/query`,
+    await _fetchOpts('POST', body, tableId)
   );
-  if (!resp.ok) await _handleError(resp);
+  if (!resp.ok) await _handleError(resp, tableId);
 
   const data = await resp.json();
   return { records: data.data || [], metadata: data.metadata || {} };
@@ -174,19 +219,19 @@ async function qbUpsert(tableId, records, fieldsToReturn) {
   if (fieldsToReturn) body.fieldsToReturn = fieldsToReturn;
 
   const resp = await fetch(
-    `https://${QB_REALM}/v1/records`,
-    _fetchOpts('POST', body)
+    `https://api.quickbase.com/v1/records`,
+    await _fetchOpts('POST', body, tableId)
   );
-  if (!resp.ok) await _handleError(resp);
+  if (!resp.ok) await _handleError(resp, tableId);
   return resp.json();
 }
 
 async function qbDelete(tableId, where) {
   const resp = await fetch(
-    `https://${QB_REALM}/v1/records`,
-    _fetchOpts('DELETE', { from: tableId, where })
+    `https://api.quickbase.com/v1/records`,
+    await _fetchOpts('DELETE', { from: tableId, where }, tableId)
   );
-  if (!resp.ok) await _handleError(resp);
+  if (!resp.ok) await _handleError(resp, tableId);
   return resp.json();
 }
 
