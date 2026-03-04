@@ -33,7 +33,7 @@ var vacCSS = `
 function buildHTML() {
   return `
     <div class="sched-topbar" style="border-bottom:1px solid var(--border);flex-shrink:0">
-      <div class="sched-topbar-left"><div class="page-title">Vacations</div></div>
+      <div class="sched-topbar-left"></div>
       <div class="sched-topbar-right"><button class="btn btn-primary" onclick="vacNewRequest()">+ Vacation Request</button></div>
     </div>
     <div class="vacation-grid">

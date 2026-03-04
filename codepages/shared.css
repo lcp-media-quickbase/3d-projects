@@ -71,7 +71,6 @@
   background: #1e2230;
   border-right-color: #1a1d2a;
 }
-[data-theme="light"] .sidebar-logo { background: #3b6cf7; }
 [data-theme="light"] .nav-item { color: #8b90a8; }
 [data-theme="light"] .nav-item:hover { background: rgba(255,255,255,0.08); color: #c8cce0; }
 [data-theme="light"] .nav-item.active { background: rgba(59,108,247,0.2); color: #6c9aff; }
@@ -112,7 +111,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 0;
+  padding: 6px 0;
   z-index: 100;
   transition: width 0.2s ease;
   overflow: hidden;

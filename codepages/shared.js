@@ -694,9 +694,10 @@ function renderAppHeader() {
   var ticketIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>';
 
   return '<div class="app-header">' +
-    '<div class="app-header-logo">' + lcpLogo + '<span>3D Projects</span></div>' +
-    '<div class="app-header-divider"></div>' +
-    '<div class="app-header-title" id="appHeaderTitle">Scheduler</div>' +
+    '<div class="app-header-logo">' + lcpLogo + '<span>3D Projects</span>' +
+      '<span class="app-header-sep">›</span>' +
+      '<span class="app-header-title" id="appHeaderTitle">Scheduler</span>' +
+    '</div>' +
     '<div class="app-header-search">' +
       '<span class="app-header-search-icon">' + searchIcon + '</span>' +
       '<input type="text" id="appSearchInput" placeholder="Search this app..." autocomplete="off">' +
