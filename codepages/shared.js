@@ -105,7 +105,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.0.5';
+var LCP_VERSION = 'v3.0.6';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -988,9 +988,9 @@ function buildDrawerHTML() {
     '<button onclick="closeTicketDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:4px">&times;</button>' +
   '</div>' +
   '<div style="display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0">' +
-    '<button class="btn btn-sm btn-active" id="tktFilterAll" onclick="filterDrawerTickets(\x27all\x27)">All</button>' +
-    '<button class="btn btn-sm" id="tktFilterOpen" onclick="filterDrawerTickets(\x27open\x27)">Open</button>' +
+    '<button class="btn btn-sm btn-active" id="tktFilterOpen" onclick="filterDrawerTickets(\x27open\x27)">Open</button>' +
     '<button class="btn btn-sm" id="tktFilterClosed" onclick="filterDrawerTickets(\x27closed\x27)">Closed</button>' +
+    '<button class="btn btn-sm" id="tktFilterAll" onclick="filterDrawerTickets(\x27all\x27)">All</button>' +
   '</div>' +
   '<div id="ticketDrawerList" style="flex:1;overflow-y:auto;padding:12px 20px">' +
     '<div style="text-align:center;color:var(--text-dim);padding:40px 0">Loading tickets...</div>' +
@@ -1000,7 +1000,7 @@ function buildDrawerHTML() {
   '</div>';
 }
 
-var _drawerFilter = 'all';
+var _drawerFilter = 'open';
 
 function filterDrawerTickets(filter) {
   _drawerFilter = filter;
