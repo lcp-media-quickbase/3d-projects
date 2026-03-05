@@ -514,40 +514,27 @@ function detectRole() {
   return _currentUser;
 }
 
-// Fetch current user email from QB if not available from page globals
+// Fetch current user email from QB using the XML API (works on Code Pages)
 async function resolveCurrentUserEmail() {
   if (_currentUser.email) return;
   if (_authMode !== 'session') return;
   try {
-    // Use the first available temp token to query current user
-    var tableId = TABLES.people;
-    var token = await _getTempToken(tableId);
-    var resp = await fetch('https://api.quickbase.com/v1/auth/temporary/' + tableId, {
+    var resp = await fetch('https://' + QB_REALM + '/db/main?a=API_GetUserInfo&fmt=structured', {
       method: 'GET',
-      headers: { 'QB-Realm-Hostname': QB_REALM, 'Authorization': 'QB-TEMP-TOKEN ' + token },
       credentials: 'include'
     });
     if (resp.ok) {
-      var data = await resp.json();
-      // The response may not have email, but let's try
-      if (data.email) _currentUser.email = data.email;
-    }
-  } catch(e) {}
-  
-  // If still no email, try to find ourselves in the People table
-  if (!_currentUser.email) {
-    try {
-      // QB Code Pages expose gUserName
-      var userName = (typeof gUserName !== 'undefined') ? gUserName : '';
-      if (!userName && typeof gLoginName !== 'undefined') userName = gLoginName;
-      if (userName) {
-        // userName might be an email or a QB username
-        if (userName.indexOf('@') !== -1) {
-          _currentUser.email = userName;
-        }
+      var text = await resp.text();
+      var emailMatch = text.match(/<email>([^<]+)<\/email>/);
+      if (emailMatch) {
+        _currentUser.email = emailMatch[1].toLowerCase();
       }
-    } catch(e) {}
-  }
+      var nameMatch = text.match(/<name>([^<]+)<\/name>/);
+      if (nameMatch && !_currentUser.name) {
+        _currentUser.name = nameMatch[1];
+      }
+    }
+  } catch(e) { console.warn('[Auth] Could not resolve user email:', e); }
   console.log('[Role] Resolved email:', _currentUser.email || '(still unknown)');
 }
 
