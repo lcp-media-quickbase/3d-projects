@@ -105,7 +105,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.0.4';
+var LCP_VERSION = 'v3.0.5';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -1105,7 +1105,6 @@ function viewTicket(recordId) {
         '<span style="font-size:15px;font-weight:600;color:var(--text)">' + escapeHtml(t.ticketId || '#' + t.id) + '</span>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:8px">' +
-        '<a href="' + qbUrl + '" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none">Open in QB</a>' +
         '<button onclick="closeTicketDrawer();openTicketDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:12px;text-decoration:underline">Back</button>' +
         '<button onclick="closeTicketDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:4px">&times;</button>' +
       '</div>' +
