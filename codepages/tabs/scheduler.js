@@ -200,7 +200,8 @@ function getGroupedPeople() {
 function renderPodFilters() {
   var pods = []; var seen = {};
   sPeople.forEach(function(p) { if (!seen[p.pod]) { seen[p.pod]=true; pods.push(p.pod); } });
-  document.getElementById('podFilters').innerHTML = pods.map(function(pod) {
+  var pf = document.getElementById('podFilters'); if (!pf) return;
+  pf.innerHTML = pods.map(function(pod) {
     var c = podColor(pod), active = activePods.has(pod);
     return '<button class="pill '+(active?'active':'')+'" onclick="schedTogglePod(\''+pod+'\')" style="'+(active?'border-color:'+c+';color:'+c+';background:'+c+'22':'')+'">'+pod.replace(' POD','')+'</button>';
   }).join('');
@@ -227,7 +228,7 @@ function renderResourcePanel() {
     }
     html += '</div>';
   }
-  document.getElementById('resourceList').innerHTML = html;
+  var rl = document.getElementById('resourceList'); if (rl) rl.innerHTML = html;
 }
 
 function renderTimelineHeader() {
@@ -247,7 +248,8 @@ function renderTimelineHeader() {
     if (d.getTime()===today.getTime()) cls += ' today';
     dHtml += '<div class="'+cls+'" style="width:'+cellW+'px"><div class="day-num">'+d.getDate()+'</div><div style="font-size:9px">'+DOW[dow]+'</div></div>';
   }
-  document.getElementById('timelineMonths').innerHTML = mHtml;
+  var tm = document.getElementById('timelineMonths'); if (!tm) return;
+  tm.innerHTML = mHtml;
   document.getElementById('timelineDays').innerHTML = dHtml;
 }
 
