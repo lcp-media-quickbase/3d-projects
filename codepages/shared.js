@@ -495,8 +495,13 @@ function detectRole() {
   if (typeof gReqRole !== 'undefined' && gReqRole) {
     _currentUser.role = parseInt(gReqRole);
   }
+  // QB Code Pages may expose email via different globals
   if (typeof gReqEmail !== 'undefined' && gReqEmail) {
     _currentUser.email = gReqEmail;
+  } else if (typeof gUserEmail !== 'undefined' && gUserEmail) {
+    _currentUser.email = gUserEmail;
+  } else if (typeof gLoginEmail !== 'undefined' && gLoginEmail) {
+    _currentUser.email = gLoginEmail;
   }
   // Fallback for local dev — admin
   if (!_currentUser.role) _currentUser.role = ROLE.ADMIN;
@@ -505,8 +510,45 @@ function detectRole() {
   _currentUser.isLeadership = (_currentUser.role === ROLE.LEADERSHIP);
   _currentUser.isSenior = (_currentUser.role === ROLE.SENIORS);
 
-  console.log('[Role] Detected:', _currentUser.role, 'Admin:', _currentUser.isAdmin);
+  console.log('[Role] Detected:', _currentUser.role, 'Admin:', _currentUser.isAdmin, 'Email:', _currentUser.email || '(unknown)');
   return _currentUser;
+}
+
+// Fetch current user email from QB if not available from page globals
+async function resolveCurrentUserEmail() {
+  if (_currentUser.email) return;
+  if (_authMode !== 'session') return;
+  try {
+    // Use the first available temp token to query current user
+    var tableId = TABLES.people;
+    var token = await _getTempToken(tableId);
+    var resp = await fetch('https://api.quickbase.com/v1/auth/temporary/' + tableId, {
+      method: 'GET',
+      headers: { 'QB-Realm-Hostname': QB_REALM, 'Authorization': 'QB-TEMP-TOKEN ' + token },
+      credentials: 'include'
+    });
+    if (resp.ok) {
+      var data = await resp.json();
+      // The response may not have email, but let's try
+      if (data.email) _currentUser.email = data.email;
+    }
+  } catch(e) {}
+  
+  // If still no email, try to find ourselves in the People table
+  if (!_currentUser.email) {
+    try {
+      // QB Code Pages expose gUserName
+      var userName = (typeof gUserName !== 'undefined') ? gUserName : '';
+      if (!userName && typeof gLoginName !== 'undefined') userName = gLoginName;
+      if (userName) {
+        // userName might be an email or a QB username
+        if (userName.indexOf('@') !== -1) {
+          _currentUser.email = userName;
+        }
+      }
+    } catch(e) {}
+  }
+  console.log('[Role] Resolved email:', _currentUser.email || '(still unknown)');
 }
 
 function currentUser() { return _currentUser; }
@@ -934,6 +976,7 @@ function filterDrawerTickets(filter) {
 }
 
 async function loadMyTickets() {
+  await resolveCurrentUserEmail();
   try {
     var userEmail = (_currentUser.email || '').toLowerCase();
     var resp = await fetch('https://api.quickbase.com/v1/records/query', {
