@@ -132,7 +132,7 @@ function buildHTML() {
     </div>
     <div class="scheduler-layout">
       <div class="resource-panel">
-        <div class="resource-header">Team Members</div>
+        <div class="resource-header" style="display:flex;align-items:center;justify-content:space-between"><span>Team Members</span><span style="display:flex;gap:2px"><button onclick="schedExpandAll()" title="Expand all" style="border:none;background:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:2px 4px">▼</button><button onclick="schedCollapseAll()" title="Collapse all" style="border:none;background:none;cursor:pointer;color:var(--text-dim);font-size:14px;padding:2px 4px">▲</button></span></div>
         <div class="resource-list" id="resourceList"></div>
       </div>
       <div class="timeline-panel">
@@ -559,6 +559,11 @@ window.schedShowTip = showTip;
 window.schedHideTip = hideTip;
 window.schedBarMouseDown = onBarMouseDown;
 window.schedTimelineClick = onTimelineClick;
+window.schedExpandAll = function() { collapsedPods.clear(); renderResourcePanel(); renderTimeline(); };
+window.schedCollapseAll = function() {
+  sPeople.forEach(function(p) { collapsedPods.add(p.pod); });
+  renderResourcePanel(); renderTimeline();
+};
 window.schedSearch = function(val) {
   clearTimeout(window._schedSearchTimer);
   window._schedSearchTimer = setTimeout(function() { searchQuery=val.trim(); renderResourcePanel(); renderTimeline(); }, 150);
