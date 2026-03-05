@@ -105,7 +105,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.0.6';
+var LCP_VERSION = 'v3.1.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -764,12 +764,15 @@ function renderAppHeader() {
       '<input type="text" id="appSearchInput" placeholder="Search this app..." autocomplete="off">' +
     '</div>' +
     '<div class="app-header-right">' +
-      (_currentUser.isAdmin ? '<select id="roleTestSelect" class="form-select" style="font-size:11px;padding:4px 8px;width:auto;min-width:0;border-color:var(--border);background:var(--surface2);color:var(--text-muted)" onchange="testAsRole(this.value)">' +
-        '<option value="">My Role</option>' +
-        '<option value="10">Viewer</option>' +
-        '<option value="13">Poland Leadership</option>' +
-        '<option value="14">Poland Seniors</option>' +
-        '<option value="12">Administrator</option>' +
+      (_currentUser.isAdmin ? '<select id="viewAsSelect" class="form-select" style="font-size:11px;padding:4px 8px;width:auto;min-width:140px;border-color:var(--border);background:var(--surface2);color:var(--text-muted)" onchange="viewAsChanged(this.value)">' +
+        '<option value="me">Myself</option>' +
+        '<optgroup label="Test as Role">' +
+          '<option value="role:10">Viewer</option>' +
+          '<option value="role:13">Poland Leadership</option>' +
+          '<option value="role:14">Poland Seniors</option>' +
+          '<option value="role:12">Administrator</option>' +
+        '</optgroup>' +
+        '<optgroup label="Test as User" id="viewAsUsers"></optgroup>' +
       '</select>' : '') +
       '<button class="btn-ticket" onclick="openTicketDrawer()">' + ICONS.ticket + ' Tickets</button>' +
     '</div>' +
@@ -907,33 +910,90 @@ async function submitTicket() {
 
 
 
-// ─── TEST AS ROLE (admin only) ───────────────────────────────
-var _realRole = null;
+// ─── VIEW AS USER/ROLE (admin only) ──────────────────────────
+var _realUser = null;
+var _qbUsers = [];
 
-function testAsRole(roleId) {
-  if (!_currentUser.isAdmin && _realRole === null) return;
-  
-  if (_realRole === null) _realRole = _currentUser.role;
-  
-  if (!roleId || roleId === '') {
-    // Restore real role
-    _currentUser.role = _realRole;
-    _currentUser.isAdmin = (_realRole === ROLE.ADMIN || _realRole === ROLE.ADMIN_COPY);
-    _currentUser.isLeadership = (_realRole === ROLE.LEADERSHIP);
-    _currentUser.isSenior = (_realRole === ROLE.SENIORS);
-    _realRole = null;
-    console.log('[Role] Restored to real role:', _currentUser.role);
-  } else {
-    var r = parseInt(roleId);
+function viewAsChanged(val) {
+  if (!val || val === 'me') {
+    // Restore real identity
+    if (_realUser) {
+      _currentUser.role = _realUser.role;
+      _currentUser.email = _realUser.email;
+      _currentUser.userId = _realUser.userId;
+      _currentUser.isAdmin = (_realUser.role === ROLE.ADMIN || _realUser.role === ROLE.ADMIN_COPY);
+      _currentUser.isLeadership = (_realUser.role === ROLE.LEADERSHIP);
+      _currentUser.isSenior = (_realUser.role === ROLE.SENIORS);
+      _realUser = null;
+    }
+    console.log('[ViewAs] Restored to real user');
+    window.buildDashboard();
+    return;
+  }
+
+  // Save real identity on first switch
+  if (!_realUser) {
+    _realUser = { role: _currentUser.role, email: _currentUser.email, userId: _currentUser.userId,
+      isAdmin: _currentUser.isAdmin };
+  }
+
+  if (val.indexOf('role:') === 0) {
+    var r = parseInt(val.split(':')[1]);
     _currentUser.role = r;
     _currentUser.isAdmin = (r === ROLE.ADMIN || r === ROLE.ADMIN_COPY);
     _currentUser.isLeadership = (r === ROLE.LEADERSHIP);
     _currentUser.isSenior = (r === ROLE.SENIORS);
-    console.log('[Role] Testing as role:', r);
+    console.log('[ViewAs] Testing as role:', r);
+  } else if (val.indexOf('user:') === 0) {
+    var email = val.split(':')[1];
+    var u = _qbUsers.find(function(x) { return x.email === email; });
+    if (u) {
+      _currentUser.email = u.email;
+      _currentUser.userId = u.id;
+      console.log('[ViewAs] Testing as user:', u.name, u.email);
+    }
   }
-  
-  // Re-render the entire dashboard with new role
   window.buildDashboard();
+}
+
+async function loadQBUsers() {
+  if (_qbUsers.length > 0) return;
+  try {
+    var resp = await fetch('https://api.quickbase.com/v1/records/query', {
+      method: 'POST',
+      headers: {
+        'QB-Realm-Hostname': 'lcpmedia.quickbase.com',
+        'Authorization': 'QB-USER-TOKEN b9ytiq_f9q7_0_chzcq48b95rhwnbqt4b6jfiuyp',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'bu83am495',
+        select: [3, 9, 23, 36],
+        where: "{23.EX.'Paid seat'}",
+        sortBy: [{ fieldId: 36, order: 'ASC' }],
+        options: { top: 200 }
+      })
+    });
+    if (!resp.ok) return;
+    var data = await resp.json();
+    _qbUsers = (data.data || []).map(function(r) {
+      return {
+        id: r[3] ? String(r[3].value) : '',
+        email: r[9] ? r[9].value : '',
+        name: r[36] ? r[36].value : '',
+        access: r[23] ? r[23].value : ''
+      };
+    }).filter(function(u) { return u.email && u.name; });
+
+    // Populate the dropdown
+    var optgroup = document.getElementById('viewAsUsers');
+    if (optgroup) {
+      optgroup.innerHTML = _qbUsers.map(function(u) {
+        return '<option value="user:' + escapeHtml(u.email) + '">' + escapeHtml(u.name) + '</option>';
+      }).join('');
+    }
+    console.log('[ViewAs] Loaded', _qbUsers.length, 'users');
+  } catch(e) { console.warn('[ViewAs] Could not load users:', e); }
 }
 
 // ─── TICKET DRAWER ───────────────────────────────────────────
