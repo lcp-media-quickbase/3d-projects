@@ -773,7 +773,7 @@ function renderAppHeader() {
       '</select>' : '') +
       '<button class="btn-ticket" onclick="openTicketDrawer()">' + ICONS.ticket + ' Tickets</button>' +
     '</div>' +
-  '</a>';
+  '</div>';
 }
 
 function openTicket() {
@@ -1234,7 +1234,7 @@ function renderDrawerTickets() {
         (t.type ? '<span>·</span><span>' + escapeHtml(t.type) + '</span>' : '') +
         (dateStr ? '<span style="margin-left:auto">' + dateStr + '</span>' : '') +
       '</div>' +
-    '</a>';
+    '</div>';
   }).join('');
 }
 
