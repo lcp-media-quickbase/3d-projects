@@ -149,7 +149,8 @@ var REPORT_ROLES = [ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.ADMIN_COPY];
 
 // ─── BUILD SHELL ────────────────────────────────────────────
 // This runs AFTER all tab JS files are loaded (see bottom of page).
-function buildDashboard() {
+async function buildDashboard() {
+  await resolveCurrentUser();
   document.body.innerHTML =
     renderAppHeader() +
     '<div class="app-body">' +
