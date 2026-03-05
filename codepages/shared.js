@@ -101,7 +101,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v2.9.1';
+var LCP_VERSION = 'v2.9.2';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -1093,8 +1093,7 @@ function viewTicket(recordId) {
   var cleanDetails = (t.details || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
 
   // Format status log — each entry typically on its own line
-  var logEntries = (t.statusLog || '').split(/
-/).filter(function(l) { return l.trim(); });
+  var logEntries = (t.statusLog || '').split('\n').filter(function(l) { return l.trim(); });
 
   drawer.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">' +
