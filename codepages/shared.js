@@ -729,6 +729,7 @@ function renderAppHeader() {
       '<input type="text" id="appSearchInput" placeholder="Search this app..." autocomplete="off">' +
     '</div>' +
     '<div class="app-header-right">' +
+      '<button class="btn-ticket" onclick="openTicketDrawer()" style="background:transparent;border-color:var(--border);color:var(--text-muted)">' + ICONS.ticket + ' My Tickets</button>' +
       '<button class="btn-ticket" onclick="openTicket()">' + ticketIcon + ' Submit Ticket</button>' +
     '</div>' +
   '</div>';
@@ -854,6 +855,166 @@ async function submitTicket() {
     btn.disabled = false;
     btnText.textContent = 'Submit Ticket';
   }
+}
+
+
+// ─── TICKET DRAWER ───────────────────────────────────────────
+var _ticketDrawerOpen = false;
+var _myTickets = [];
+
+function openTicketDrawer() {
+  if (_ticketDrawerOpen) { closeTicketDrawer(); return; }
+  _ticketDrawerOpen = true;
+
+  var overlay = document.getElementById('ticketDrawerOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'ticketDrawerOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:900;opacity:0;transition:opacity 0.2s';
+    overlay.onclick = function(e) { if (e.target === overlay) closeTicketDrawer(); };
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = '';
+  requestAnimationFrame(function() { overlay.style.opacity = '1'; });
+
+  var drawer = document.getElementById('ticketDrawer');
+  if (!drawer) {
+    drawer = document.createElement('div');
+    drawer.id = 'ticketDrawer';
+    drawer.style.cssText = 'position:fixed;top:0;right:-420px;width:420px;height:100vh;background:var(--surface);border-left:1px solid var(--border);z-index:901;display:flex;flex-direction:column;transition:right 0.25s ease;box-shadow:-4px 0 24px rgba(0,0,0,0.2)';
+    document.body.appendChild(drawer);
+  }
+  drawer.innerHTML = buildDrawerHTML();
+  requestAnimationFrame(function() { drawer.style.right = '0'; });
+
+  loadMyTickets();
+}
+
+function closeTicketDrawer() {
+  _ticketDrawerOpen = false;
+  var drawer = document.getElementById('ticketDrawer');
+  if (drawer) drawer.style.right = '-420px';
+  var overlay = document.getElementById('ticketDrawerOverlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(function() { overlay.style.display = 'none'; }, 200);
+  }
+}
+
+function buildDrawerHTML() {
+  return '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+    '<div style="display:flex;align-items:center;gap:10px">' +
+      '<span style="color:var(--accent)">' + ICONS.ticket + '</span>' +
+      '<span style="font-size:15px;font-weight:600;color:var(--text)">My Tickets</span>' +
+    '</div>' +
+    '<button onclick="closeTicketDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:4px">&times;</button>' +
+  '</div>' +
+  '<div style="display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+    '<button class="btn btn-sm btn-active" id="tktFilterAll" onclick="filterDrawerTickets(\x27all\x27)">All</button>' +
+    '<button class="btn btn-sm" id="tktFilterOpen" onclick="filterDrawerTickets(\x27open\x27)">Open</button>' +
+    '<button class="btn btn-sm" id="tktFilterClosed" onclick="filterDrawerTickets(\x27closed\x27)">Closed</button>' +
+  '</div>' +
+  '<div id="ticketDrawerList" style="flex:1;overflow-y:auto;padding:12px 20px">' +
+    '<div style="text-align:center;color:var(--text-dim);padding:40px 0">Loading tickets...</div>' +
+  '</div>' +
+  '<div style="padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0">' +
+    '<button class="btn btn-primary" onclick="closeTicketDrawer();openTicket()" style="width:100%">' + ICONS.ticket + ' New Ticket</button>' +
+  '</div>';
+}
+
+var _drawerFilter = 'all';
+
+function filterDrawerTickets(filter) {
+  _drawerFilter = filter;
+  document.querySelectorAll('#ticketDrawer .btn-sm').forEach(function(b) { b.classList.remove('btn-active'); });
+  var btnId = filter === 'all' ? 'tktFilterAll' : filter === 'open' ? 'tktFilterOpen' : 'tktFilterClosed';
+  var btn = document.getElementById(btnId);
+  if (btn) btn.classList.add('btn-active');
+  renderDrawerTickets();
+}
+
+async function loadMyTickets() {
+  try {
+    var userEmail = _currentUser.email || '';
+    var where = userEmail ? '{22.EX.' + userEmail + '}' : null;
+    var resp = await fetch('https://lcpmedia.quickbase.com/v1/records/query', {
+      method: 'POST',
+      headers: {
+        'QB-Realm-Hostname': 'lcpmedia.quickbase.com',
+        'Authorization': 'QB-USER-TOKEN b9ytiq_f9q7_0_chzcq48b95rhwnbqt4b6jfiuyp',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: TICKET_TABLE,
+        select: [3, 6, 7, 9, 12, 24, 29],
+        where: where,
+        sortBy: [{ fieldId: 29, order: 'DESC' }],
+        options: { top: 50 }
+      })
+    });
+    if (!resp.ok) throw new Error('Failed to load tickets');
+    var data = await resp.json();
+    _myTickets = (data.data || []).map(function(r) {
+      return {
+        id: r[3] ? r[3].value : '',
+        subject: r[6] ? r[6].value : '',
+        type: r[7] ? r[7].value : '',
+        priority: r[9] ? r[9].value : '',
+        status: r[12] ? r[12].value : '',
+        ticketId: r[24] ? r[24].value : '',
+        dateOpened: r[29] ? r[29].value : ''
+      };
+    });
+    renderDrawerTickets();
+  } catch(e) {
+    document.getElementById('ticketDrawerList').innerHTML =
+      '<div style="text-align:center;color:var(--danger);padding:40px 0">Error loading tickets: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function renderDrawerTickets() {
+  var list = document.getElementById('ticketDrawerList');
+  if (!list) return;
+
+  var filtered = _myTickets;
+  if (_drawerFilter === 'open') {
+    filtered = _myTickets.filter(function(t) { return t.status && t.status !== 'Closed' && t.status !== 'Resolved'; });
+  } else if (_drawerFilter === 'closed') {
+    filtered = _myTickets.filter(function(t) { return t.status === 'Closed' || t.status === 'Resolved'; });
+  }
+
+  if (!filtered.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:40px 0">No tickets found</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(function(t) {
+    var priColor = t.priority === '01-Critical' ? 'var(--danger)' :
+                   t.priority === '02-High' ? 'var(--warning)' :
+                   t.priority === '03-Medium' ? 'var(--accent)' : 'var(--text-dim)';
+    var statusClass = (!t.status || t.status === 'Open' || t.status === 'New') ? 'badge-warning' :
+                      (t.status === 'In Progress') ? 'badge-info' :
+                      (t.status === 'Closed' || t.status === 'Resolved') ? 'badge-success' : 'badge-neutral';
+    var dateStr = '';
+    if (t.dateOpened) {
+      var d = new Date(t.dateOpened);
+      dateStr = MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+    }
+    var url = 'https://lcpmedia.quickbase.com/db/btnit9gpf?a=dr&rid=' + t.id;
+
+    return '<a href="' + url + '" target="_blank" style="text-decoration:none;display:block;padding:12px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;transition:border-color 0.15s;cursor:pointer" onmouseenter="this.style.borderColor=\x27var(--accent)\x27" onmouseleave="this.style.borderColor=\x27var(--border)\x27">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+        '<span style="font-size:11px;font-family:JetBrains Mono,monospace;color:var(--text-dim)">' + escapeHtml(t.ticketId || '#' + t.id) + '</span>' +
+        '<span class="badge ' + statusClass + '">' + escapeHtml(t.status || 'New') + '</span>' +
+      '</div>' +
+      '<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;line-height:1.3">' + escapeHtml(t.subject || 'No subject') + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim)">' +
+        '<span style="color:' + priColor + '">' + escapeHtml(t.priority || '') + '</span>' +
+        (t.type ? '<span>·</span><span>' + escapeHtml(t.type) + '</span>' : '') +
+        (dateStr ? '<span style="margin-left:auto">' + dateStr + '</span>' : '') +
+      '</div>' +
+    '</a>';
+  }).join('');
 }
 
 function renderTabContainers() {
