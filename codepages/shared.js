@@ -737,7 +737,7 @@ function openTicket() {
   var user = currentUser();
   var html = '<div class="ticket-form">' +
     '<div class="ticket-header">' +
-      '<div class="ticket-header-icon">' + ICONS.quotes + '</div>' +
+      '<div class="ticket-header-icon">' + ticketIcon + '</div>' +
       '<div><div class="ticket-header-title">Submit a Ticket</div>' +
       '<div class="ticket-header-sub">Describe your issue or request and our team will follow up.</div></div>' +
     '</div>' +
@@ -775,6 +775,10 @@ function openTicket() {
           '<input class="form-input" id="tktAdditional" placeholder="Names or emails of others affected"></div>' +
         '<div class="form-group"><label class="form-label">Web Link</label>' +
           '<input class="form-input" type="url" id="tktWebLink" placeholder="https://..."></div>' +
+      '</div>' +
+
+      '<div class="form-group"><label class="form-label">Supporting File</label>' +
+        '<input class="form-input" type="file" id="tktFile" style="padding:6px">' +
       '</div>' +
     '</div>' +
 
