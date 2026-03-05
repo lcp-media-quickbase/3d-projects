@@ -101,7 +101,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v2.9.0';
+var LCP_VERSION = 'v2.9.1';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -730,7 +730,7 @@ function renderDashboardNav() {
       return '<a class="nav-item" data-tab="' + t.id + '" onclick="switchTab(\x27' + t.id + '\x27)" href="javascript:void(0)">' +
         '<span class="nav-icon">' + icon + '</span>' +
         '<span class="nav-label">' + t.label + '</span>' +
-      '</a>';
+      '</div>';
     }).join('') +
     '</div>' +
     '<div class="sidebar-bottom">' +
@@ -1022,7 +1022,7 @@ async function loadMyTickets() {
       },
       body: JSON.stringify({
         from: TICKET_TABLE,
-        select: [3, 6, 7, 9, 12, 24, 29, 31],
+        select: [3, 6, 7, 8, 9, 10, 12, 16, 17, 19, 20, 22, 24, 29, 31],
         sortBy: [{ fieldId: 29, order: 'DESC' }],
         options: { top: 100 }
       })
@@ -1041,6 +1041,13 @@ async function loadMyTickets() {
         status: r[12] ? r[12].value : '',
         ticketId: r[24] ? r[24].value : '',
         dateOpened: r[29] ? r[29].value : '',
+        details: r[10] ? r[10].value : '',
+        notes: r[16] ? r[16].value : '',
+        statusLog: r[17] ? r[17].value : '',
+        requestedFor: r[19] ? r[19].value : '',
+        contactEmail: r[22] ? r[22].value : '',
+        system: r[8] ? r[8].value : '',
+        department: r[20] ? r[20].value : '',
         createdById: String(createdById),
         createdByEmail: createdByEmail
       };
@@ -1057,6 +1064,129 @@ async function loadMyTickets() {
   } catch(e) {
     document.getElementById('ticketDrawerList').innerHTML =
       '<div style="text-align:center;color:var(--danger);padding:40px 0">Error loading tickets: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+
+function viewTicket(recordId) {
+  var t = _myTickets.find(function(x) { return x.id === recordId; });
+  if (!t) { showToast('Ticket not found', 'error'); return; }
+
+  var drawer = document.getElementById('ticketDrawer');
+  if (!drawer) return;
+
+  var priColor = t.priority === '01-Critical' ? 'var(--danger)' :
+                 t.priority === '02-High' ? 'var(--warning)' :
+                 t.priority === '03-Medium' ? 'var(--accent)' : 'var(--text-dim)';
+  var statusClass = (!t.status) ? 'badge-neutral' :
+                    t.status.charAt(0) === 'C' ? 'badge-success' :
+                    (t.status.indexOf('Progress') !== -1 || t.status.indexOf('Assigned') !== -1) ? 'badge-info' :
+                    t.status.indexOf('Stalled') !== -1 ? 'badge-danger' : 'badge-warning';
+  var dateStr = '';
+  if (t.dateOpened) {
+    var d = new Date(t.dateOpened);
+    dateStr = MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+  }
+  var qbUrl = 'https://lcpmedia.quickbase.com/db/btnit9gpf?a=dr&rid=' + t.id;
+
+  // Clean up details — strip HTML tags for display
+  var cleanDetails = (t.details || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+
+  // Format status log — each entry typically on its own line
+  var logEntries = (t.statusLog || '').split(/
+/).filter(function(l) { return l.trim(); });
+
+  drawer.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span style="color:var(--accent)">' + ICONS.ticket + '</span>' +
+        '<span style="font-size:15px;font-weight:600;color:var(--text)">' + escapeHtml(t.ticketId || '#' + t.id) + '</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<a href="' + qbUrl + '" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none">Open in QB</a>' +
+        '<button onclick="closeTicketDrawer();openTicketDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:12px;text-decoration:underline">Back</button>' +
+        '<button onclick="closeTicketDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:4px">&times;</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="flex:1;overflow-y:auto;padding:16px 20px">' +
+      // Subject + status
+      '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:12px;line-height:1.4">' + escapeHtml(t.subject || 'No subject') + '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">' +
+        '<span class="badge ' + statusClass + '">' + escapeHtml(t.status || 'New') + '</span>' +
+        '<span class="badge" style="background:transparent;border:1px solid ' + priColor + ';color:' + priColor + '">' + escapeHtml(t.priority || '') + '</span>' +
+        (t.type ? '<span class="badge badge-neutral">' + escapeHtml(t.type) + '</span>' : '') +
+      '</div>' +
+
+      // Meta fields
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:16px;font-size:12px">' +
+        (dateStr ? '<div><span style="color:var(--text-dim)">Opened</span><div style="color:var(--text);margin-top:2px">' + dateStr + '</div></div>' : '') +
+        (t.system ? '<div><span style="color:var(--text-dim)">System</span><div style="color:var(--text);margin-top:2px">' + escapeHtml(t.system) + '</div></div>' : '') +
+        (t.department ? '<div><span style="color:var(--text-dim)">Department</span><div style="color:var(--text);margin-top:2px">' + escapeHtml(t.department) + '</div></div>' : '') +
+        (t.requestedFor ? '<div><span style="color:var(--text-dim)">Requested By</span><div style="color:var(--text);margin-top:2px">' + escapeHtml(t.requestedFor) + '</div></div>' : '') +
+      '</div>' +
+
+      // Details
+      (cleanDetails ? '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Details</div>' +
+        '<div style="font-size:13px;color:var(--text-muted);line-height:1.5;padding:10px;background:var(--surface2);border-radius:6px;white-space:pre-wrap">' + escapeHtml(cleanDetails) + '</div></div>' : '') +
+
+      // Status Change Log
+      '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Status History</div>' +
+      (logEntries.length ?
+        '<div style="font-size:12px;color:var(--text-muted);padding:10px;background:var(--surface2);border-radius:6px">' +
+        logEntries.map(function(l) {
+          return '<div style="padding:4px 0;border-bottom:1px solid var(--border)">' + escapeHtml(l) + '</div>';
+        }).join('') + '</div>'
+        : '<div style="font-size:12px;color:var(--text-dim);padding:10px;background:var(--surface2);border-radius:6px">No status changes recorded</div>'
+      ) + '</div>' +
+
+      // Notes section with existing notes + add new
+      '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Notes / Comments</div>' +
+      (t.notes ? '<div style="font-size:13px;color:var(--text-muted);line-height:1.5;padding:10px;background:var(--surface2);border-radius:6px;margin-bottom:8px;white-space:pre-wrap">' + escapeHtml(t.notes) + '</div>' : '') +
+      '<textarea id="tktNewNote" class="form-textarea" rows="3" placeholder="Add a note..."></textarea>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0">' +
+      '<button class="btn btn-primary" onclick="saveTicketNote(' + t.id + ')" id="tktNoteSaveBtn" style="width:100%">Save Note</button>' +
+    '</div>';
+}
+
+async function saveTicketNote(recordId) {
+  var noteInput = document.getElementById('tktNewNote');
+  var newNote = noteInput ? noteInput.value.trim() : '';
+  if (!newNote) { showToast('Enter a note first', 'warning'); return; }
+
+  var t = _myTickets.find(function(x) { return x.id === recordId; });
+  var existing = t ? (t.notes || '') : '';
+  var timestamp = new Date().toLocaleString();
+  var userName = _currentUser.email || 'Unknown';
+  var combined = (existing ? existing + '\n\n' : '') + '[' + timestamp + ' — ' + userName + ']\n' + newNote;
+
+  var btn = document.getElementById('tktNoteSaveBtn');
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  try {
+    var record = {};
+    record[3] = {value: recordId};
+    record[16] = {value: combined};
+    await fetch('https://api.quickbase.com/v1/records', {
+      method: 'POST',
+      headers: {
+        'QB-Realm-Hostname': 'lcpmedia.quickbase.com',
+        'Authorization': 'QB-USER-TOKEN b9ytiq_f9q7_0_chzcq48b95rhwnbqt4b6jfiuyp',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({to: TICKET_TABLE, data: [record]})
+    });
+    if (t) t.notes = combined;
+    showToast('Note added', 'success');
+    viewTicket(recordId); // Refresh the view
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+    btn.textContent = 'Save Note';
+    btn.disabled = false;
   }
 }
 
@@ -1091,7 +1221,7 @@ function renderDrawerTickets() {
     }
     var url = 'https://lcpmedia.quickbase.com/db/btnit9gpf?a=dr&rid=' + t.id;
 
-    return '<a href="' + url + '" target="_blank" style="text-decoration:none;display:block;padding:12px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;transition:border-color 0.15s;cursor:pointer" onmouseenter="this.style.borderColor=\x27var(--accent)\x27" onmouseleave="this.style.borderColor=\x27var(--border)\x27">' +
+    return '<div onclick="viewTicket(' + t.id + ')" style="display:block;padding:12px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;transition:border-color 0.15s;cursor:pointer" onmouseenter="this.style.borderColor=\x27var(--accent)\x27" onmouseleave="this.style.borderColor=\x27var(--border)\x27">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
         '<span style="font-size:11px;font-family:JetBrains Mono,monospace;color:var(--text-dim)">' + escapeHtml(t.ticketId || '#' + t.id) + '</span>' +
         '<span class="badge ' + statusClass + '">' + escapeHtml(t.status || 'New') + '</span>' +
@@ -1102,7 +1232,7 @@ function renderDrawerTickets() {
         (t.type ? '<span>·</span><span>' + escapeHtml(t.type) + '</span>' : '') +
         (dateStr ? '<span style="margin-left:auto">' + dateStr + '</span>' : '') +
       '</div>' +
-    '</a>';
+    '</div>';
   }).join('');
 }
 
