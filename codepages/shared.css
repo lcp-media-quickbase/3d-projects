@@ -106,7 +106,6 @@ body {
 .sidebar {
   width: var(--nav-w);
   min-width: var(--nav-w);
-  height: 100%;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
