@@ -105,7 +105,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.1.6';
+var LCP_VERSION = 'v3.1.7';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -960,7 +960,7 @@ function populateViewAsUsers() {
   var optgroup = document.getElementById('viewAsUsers');
   if (optgroup && _qbUsers.length) {
     optgroup.innerHTML = _qbUsers.map(function(u) {
-      return '<option value="user:' + escapeHtml(u.email) + '">' + escapeHtml(u.name) + '</option>';
+      return '<option value="user:' + escapeHtml(u.email) + '">' + escapeHtml(u.name || u.email) + '</option>';
     }).join('');
   }
 }
@@ -979,7 +979,7 @@ async function loadQBUsers() {
       body: JSON.stringify({
         from: 'bu83am495',
         select: [3, 9, 23, 36],
-        where: "{23.EX.'Paid seat'}AND{36.XEX.}",
+        where: "{23.EX.'Paid seat'}",
         sortBy: [{ fieldId: 36, order: 'ASC' }],
         options: { top: 200 }
       })
@@ -993,7 +993,7 @@ async function loadQBUsers() {
         name: r[36] ? r[36].value : '',
         access: r[23] ? r[23].value : ''
       };
-    }).filter(function(u) { return u.email && u.name; });
+    }).filter(function(u) { return u.email; });
 
     populateViewAsUsers();
     console.log('[ViewAs] Loaded', _qbUsers.length, 'users:', _qbUsers.slice(0,3).map(function(u){return u.name;}).join(', '));
