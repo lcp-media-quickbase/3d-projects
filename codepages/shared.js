@@ -737,77 +737,78 @@ function renderAppHeader() {
 
 function openTicket() {
   var user = currentUser();
-  var html = '<div class="ticket-form">' +
-    '<div class="ticket-header">' +
-      '<div class="ticket-header-icon">' + ICONS.ticket + '</div>' +
-      '<div><div class="ticket-header-title">Submit a Ticket</div>' +
-      '<div class="ticket-header-sub">Describe your issue or request and our team will follow up.</div></div>' +
-    '</div>' +
+  // Close the ticket list drawer if open, then open form drawer
+  _ticketDrawerOpen = true;
 
-    '<div class="ticket-section">' +
-      '<div class="ticket-section-label">What do you need?</div>' +
+  var overlay = document.getElementById('ticketDrawerOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'ticketDrawerOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:900;opacity:0;transition:opacity 0.2s';
+    overlay.onclick = function(e) { if (e.target === overlay) closeTicketDrawer(); };
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = '';
+  requestAnimationFrame(function() { overlay.style.opacity = '1'; });
+
+  var drawer = document.getElementById('ticketDrawer');
+  if (!drawer) {
+    drawer = document.createElement('div');
+    drawer.id = 'ticketDrawer';
+    drawer.style.cssText = 'position:fixed;top:0;right:-420px;width:420px;height:100vh;background:var(--surface);border-left:1px solid var(--border);z-index:901;display:flex;flex-direction:column;transition:right 0.25s ease;box-shadow:-4px 0 24px rgba(0,0,0,0.2)';
+    document.body.appendChild(drawer);
+  }
+
+  drawer.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span style="color:var(--accent)">' + ICONS.ticket + '</span>' +
+        '<span style="font-size:15px;font-weight:600;color:var(--text)">New Ticket</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<button onclick="closeTicketDrawer();openTicketDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:12px;text-decoration:underline">Back to list</button>' +
+        '<button onclick="closeTicketDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:4px">&times;</button>' +
+      '</div>' +
+    '</div>' +
+    '<div style="flex:1;overflow-y:auto;padding:16px 20px">' +
+      '<div class="form-group"><label class="form-label">Subject</label><input class="form-input" id="tktSubject" placeholder="Brief description of the issue or request"></div>' +
       '<div class="form-row">' +
-        '<div class="form-group" style="flex:2"><label class="form-label">Subject</label>' +
-          '<input class="form-input" id="tktSubject" placeholder="Brief summary of your request"></div>' +
-        '<div class="form-group" style="flex:1"><label class="form-label">Type</label>' +
-          '<select class="form-select" id="tktType">' + TICKET_TYPES.map(function(t){return '<option>'+t+'</option>';}).join('') + '</select></div>' +
+        '<div class="form-group"><label class="form-label">Ticket Type</label><select class="form-select" id="tktType">' +
+          TICKET_TYPES.map(function(t){return '<option>'+t+'</option>';}).join('') + '</select></div>' +
+        '<div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="tktPriority">' +
+          TICKET_PRIORITIES.map(function(p){return '<option'+(p==='04-Low'?' selected':'')+'>'+p+'</option>';}).join('') + '</select></div>' +
       '</div>' +
       '<div class="form-row">' +
-        '<div class="form-group" style="flex:1"><label class="form-label">Priority</label>' +
-          '<select class="form-select" id="tktPriority">' + TICKET_PRIORITIES.map(function(p){return '<option'+(p==='04-Low'?' selected':'')+'>'+p+'</option>';}).join('') + '</select></div>' +
-        '<div class="form-group" style="flex:1"><label class="form-label">System</label>' +
-          '<select class="form-select" id="tktSystem"><option value="">Select...</option>' + TICKET_SYSTEMS.map(function(s){return '<option>'+s+'</option>';}).join('') + '</select></div>' +
-        '<div class="form-group" style="flex:1"><label class="form-label">Department</label>' +
-          '<select class="form-select" id="tktDept"><option value="">Select...</option>' + TICKET_DEPARTMENTS.map(function(d){return '<option>'+d+'</option>';}).join('') + '</select></div>' +
+        '<div class="form-group"><label class="form-label">System</label><select class="form-select" id="tktSystem"><option value="">Select...</option>' +
+          TICKET_SYSTEMS.map(function(s){return '<option>'+s+'</option>';}).join('') + '</select></div>' +
+        '<div class="form-group"><label class="form-label">Department</label><select class="form-select" id="tktDept"><option value="">Select...</option>' +
+          TICKET_DEPARTMENTS.map(function(d){return '<option>'+d+'</option>';}).join('') + '</select></div>' +
       '</div>' +
       '<div class="form-group"><label class="form-label">Details</label>' +
-        '<textarea class="form-textarea" id="tktDetails" rows="5" placeholder="Describe the issue, steps to reproduce, or what you need..."></textarea></div>' +
-    '</div>' +
-
-    '<div class="ticket-section">' +
-      '<div class="ticket-section-label">Contact Info</div>' +
+        '<textarea class="form-textarea" id="tktDetails" rows="4" placeholder="Describe the issue, steps to reproduce, or what you need..."></textarea></div>' +
       '<div class="form-row">' +
         '<div class="form-group"><label class="form-label">Requested For / By</label>' +
           '<input class="form-input" id="tktRequestedBy" value="' + escapeHtml(user.email) + '"></div>' +
         '<div class="form-group"><label class="form-label">Contact Email</label>' +
           '<input class="form-input" type="email" id="tktEmail" value="' + escapeHtml(user.email) + '"></div>' +
       '</div>' +
-      '<div class="form-row">' +
-        '<div class="form-group"><label class="form-label">Additional People Affected</label>' +
-          '<input class="form-input" id="tktAdditional" placeholder="Names or emails of others affected"></div>' +
-        '<div class="form-group"><label class="form-label">Web Link</label>' +
-          '<input class="form-input" type="url" id="tktWebLink" placeholder="https://..."></div>' +
-      '</div>' +
-
+      '<div class="form-group"><label class="form-label">Additional People Affected</label>' +
+        '<input class="form-input" id="tktAdditional" placeholder="Names or emails of others affected"></div>' +
+      '<div class="form-group"><label class="form-label">Web Link</label>' +
+        '<input class="form-input" type="url" id="tktWebLink" placeholder="https://..."></div>' +
       '<div class="form-group"><label class="form-label">Supporting File</label>' +
-        '<input class="form-input" type="file" id="tktFile" style="padding:6px">' +
-      '</div>' +
+        '<input class="form-input" type="file" id="tktFile" style="padding:6px"></div>' +
     '</div>' +
-
-    '<div class="ticket-actions">' +
-      '<button class="btn" onclick="closeTicketModal()">Cancel</button>' +
-      '<button class="btn btn-primary" onclick="submitTicket()" id="tktSubmitBtn">' +
+    '<div style="padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0">' +
+      '<button class="btn btn-primary" onclick="submitTicket()" id="tktSubmitBtn" style="width:100%">' +
         '<span id="tktSubmitText">Submit Ticket</span></button>' +
-    '</div>' +
-  '</div>';
+    '</div>';
 
-  var overlay = document.getElementById('ticketOverlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'ticketOverlay';
-    overlay.className = 'modal-overlay';
-    overlay.onclick = function(e) { if (e.target === overlay) closeTicketModal(); };
-    document.body.appendChild(overlay);
-  }
-  overlay.innerHTML = '<div class="modal-content ticket-modal">' + html + '</div>';
-  overlay.classList.add('visible');
-  setTimeout(function() { document.getElementById('tktSubject').focus(); }, 100);
+  requestAnimationFrame(function() { drawer.style.right = '0'; });
+  setTimeout(function() { var el = document.getElementById('tktSubject'); if (el) el.focus(); }, 300);
 }
 
-function closeTicketModal() {
-  var overlay = document.getElementById('ticketOverlay');
-  if (overlay) overlay.classList.remove('visible');
-}
+function closeTicketModal() { closeTicketDrawer(); }
 
 async function submitTicket() {
   var subject = document.getElementById('tktSubject').value.trim();
@@ -848,7 +849,7 @@ async function submitTicket() {
       var err = await resp.json().catch(function(){return {};});
       throw new Error(err.description || err.message || 'API error ' + resp.status);
     }
-    closeTicketModal();
+    closeTicketDrawer();
     showToast('Ticket submitted successfully', 'success');
   } catch(e) {
     showToast('Error: ' + e.message, 'error');
@@ -918,7 +919,7 @@ function buildDrawerHTML() {
     '<div style="text-align:center;color:var(--text-dim);padding:40px 0">Loading tickets...</div>' +
   '</div>' +
   '<div style="padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0">' +
-    '<button class="btn btn-primary" onclick="closeTicketDrawer();openTicket()" style="width:100%">' + ICONS.ticket + ' New Ticket</button>' +
+    '<button class="btn btn-primary" onclick="openTicket()" style="width:100%">' + ICONS.ticket + ' New Ticket</button>' +
   '</div>';
 }
 
