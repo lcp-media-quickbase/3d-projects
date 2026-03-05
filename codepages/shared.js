@@ -105,7 +105,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.0.2';
+var LCP_VERSION = 'v3.0.3';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -742,7 +742,7 @@ function renderDashboardNav() {
         '<span class="nav-label" id="themeLabel">' + themeLabel + '</span>' +
       '</a>' +
     '</div>' +
-  '</a>';
+  '</div>';
 }
 
 
@@ -844,7 +844,7 @@ function openTicket() {
     '<div style="padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0">' +
       '<button class="btn btn-primary" onclick="submitTicket()" id="tktSubmitBtn" style="width:100%">' +
         '<span id="tktSubmitText">Submit Ticket</span></button>' +
-    '</a>';
+    '</div>';
 
   requestAnimationFrame(function() { drawer.style.right = '0'; });
   setTimeout(function() { var el = document.getElementById('tktSubject'); if (el) el.focus(); }, 300);
@@ -997,7 +997,7 @@ function buildDrawerHTML() {
   '</div>' +
   '<div style="padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0">' +
     '<button class="btn btn-primary" onclick="openTicket()" style="width:100%">' + ICONS.ticket + ' New Ticket</button>' +
-  '</a>';
+  '</div>';
 }
 
 var _drawerFilter = 'all';
@@ -1066,7 +1066,7 @@ async function loadMyTickets() {
     renderDrawerTickets();
   } catch(e) {
     document.getElementById('ticketDrawerList').innerHTML =
-      '<div style="text-align:center;color:var(--danger);padding:40px 0">Error loading tickets: ' + escapeHtml(e.message) + '</a>';
+      '<div style="text-align:center;color:var(--danger);padding:40px 0">Error loading tickets: ' + escapeHtml(e.message) + '</div>';
   }
 }
 
@@ -1137,7 +1137,7 @@ function viewTicket(recordId) {
       (logEntries.length ?
         '<div style="font-size:12px;color:var(--text-muted);padding:10px;background:var(--surface2);border-radius:6px">' +
         logEntries.map(function(l) {
-          return '<div style="padding:4px 0;border-bottom:1px solid var(--border)">' + escapeHtml(l) + '</a>';
+          return '<div style="padding:4px 0;border-bottom:1px solid var(--border)">' + escapeHtml(l) + '</div>';
         }).join('') + '</div>'
         : '<div style="font-size:12px;color:var(--text-dim);padding:10px;background:var(--surface2);border-radius:6px">No status changes recorded</div>'
       ) + '</div>' +
@@ -1151,7 +1151,7 @@ function viewTicket(recordId) {
 
     '<div style="padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0">' +
       '<button class="btn btn-primary" onclick="saveTicketNote(' + t.id + ')" id="tktNoteSaveBtn" style="width:100%">Save Note</button>' +
-    '</a>';
+    '</div>';
 }
 
 async function saveTicketNote(recordId) {
