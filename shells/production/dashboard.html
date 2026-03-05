@@ -32,6 +32,7 @@ fetchRetry('https://raw.githubusercontent.com/' + REPO + '/main/codepages/versio
   .catch(function() { return { version: 'main' }; })
   .then(function(cfg) {
     var v = cfg.version || 'main';
+    console.log('%c[LCP Dashboard] v' + v, 'color:#68B6E5;font-weight:bold');
     var CDN = 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + v + '/codepages';
     document.getElementById('loader').lastChild.textContent = 'Loading ' + v + '...';
 
