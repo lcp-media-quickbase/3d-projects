@@ -729,8 +729,7 @@ function renderAppHeader() {
       '<input type="text" id="appSearchInput" placeholder="Search this app..." autocomplete="off">' +
     '</div>' +
     '<div class="app-header-right">' +
-      '<button class="btn-ticket" onclick="openTicketDrawer()" style="background:transparent;border-color:var(--border);color:var(--text-muted)">' + ICONS.ticket + ' My Tickets</button>' +
-      '<button class="btn-ticket" onclick="openTicket()">' + ticketIcon + ' Submit Ticket</button>' +
+      '<button class="btn-ticket" onclick="openTicketDrawer()">' + ICONS.ticket + ' Tickets</button>' +
     '</div>' +
   '</div>';
 }
@@ -937,7 +936,7 @@ function filterDrawerTickets(filter) {
 async function loadMyTickets() {
   try {
     var userEmail = _currentUser.email || '';
-    var where = userEmail ? '{22.EX.' + userEmail + '}' : null;
+    var where = userEmail ? '{31.EX.' + userEmail + '}' : null;
     var resp = await fetch('https://lcpmedia.quickbase.com/v1/records/query', {
       method: 'POST',
       headers: {
