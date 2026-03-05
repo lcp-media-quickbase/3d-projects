@@ -149,7 +149,7 @@ var REPORT_ROLES = [ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.ADMIN_COPY];
 
 // ─── BUILD SHELL ────────────────────────────────────────────
 // This runs AFTER all tab JS files are loaded (see bottom of page).
-async function buildDashboard() {
+function buildDashboard() {
 window.buildDashboard = buildDashboard;
   document.body.innerHTML =
     renderAppHeader() +
@@ -182,7 +182,7 @@ window.buildDashboard = buildDashboard;
   var hash = window.location.hash.replace('#', '');
   var visible = getVisibleTabs();
   var startTab = (hash && _tabs[hash]) ? hash : (visible.length ? visible[0].id : null);
-  if (startTab) await switchTab(startTab);
+  if (startTab) switchTab(startTab);
 
   // Resolve user identity in background
   if (typeof resolveCurrentUser === 'function') resolveCurrentUser();
