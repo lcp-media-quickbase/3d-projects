@@ -106,6 +106,7 @@ body {
 .sidebar {
   width: var(--nav-w);
   min-width: var(--nav-w);
+  height: 100%;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
@@ -181,9 +182,6 @@ body {
   padding: 4px 8px 8px;
   border-top: 1px solid var(--border);
 }
-
-.tab-content { display: none !important; flex-direction: column; overflow: hidden; }
-.tab-content.tab-active { display: flex !important; }
 
 .main-content {
   flex: 1;
