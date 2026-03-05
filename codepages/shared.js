@@ -105,7 +105,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.1.7';
+var LCP_VERSION = 'v3.1.8';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -978,9 +978,9 @@ async function loadQBUsers() {
       },
       body: JSON.stringify({
         from: 'bu83am495',
-        select: [3, 9, 23, 36],
+        select: [3, 7, 8, 9, 23],
         where: "{23.EX.'Paid seat'}",
-        sortBy: [{ fieldId: 36, order: 'ASC' }],
+        sortBy: [{ fieldId: 7, order: 'ASC' }],
         options: { top: 200 }
       })
     });
@@ -990,7 +990,7 @@ async function loadQBUsers() {
       return {
         id: r[3] ? String(r[3].value) : '',
         email: r[9] ? r[9].value : '',
-        name: r[36] ? r[36].value : '',
+        name: ((r[7] ? r[7].value : '') + ' ' + (r[8] ? r[8].value : '')).trim(),
         access: r[23] ? r[23].value : ''
       };
     }).filter(function(u) { return u.email; });
