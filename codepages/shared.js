@@ -105,7 +105,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v2.9.6';
+var LCP_VERSION = 'v2.9.7';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -684,17 +684,15 @@ async function switchTab(id) {
   }
 
   // Hide ALL tabs first
-  document.querySelectorAll('.tab-content').forEach(function(el) { el.style.display = 'none'; });
+  document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.remove('tab-active'); });
   if (_activeTab && _tabs[_activeTab] && _tabs[_activeTab].onDeactivate) {
     _tabs[_activeTab].onDeactivate();
   }
 
   // Activate target
   var container = document.getElementById('tab-' + id);
-  if (container) container.style.display = 'flex';
+  if (container) container.classList.add('tab-active');
 
-  container.style.flexDirection = 'column';
-  container.style.overflow = 'hidden';
   if (!tab.initialized && tab.onInit) {
     await tab.onInit();
     tab.initialized = true;
@@ -1243,7 +1241,7 @@ function renderDrawerTickets() {
 function renderTabContainers() {
   var tabs = getVisibleTabs();
   return tabs.map(function(t) {
-    return '<div id="tab-' + t.id + '" class="tab-content" style="display:none"></div>';
+    return '<div id="tab-' + t.id + '" class="tab-content"></div>';
   }).join('');
 }
 
