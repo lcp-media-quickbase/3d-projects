@@ -935,8 +935,7 @@ function filterDrawerTickets(filter) {
 
 async function loadMyTickets() {
   try {
-    var userEmail = _currentUser.email || '';
-    var where = userEmail ? '{31.EX.' + userEmail + '}' : null;
+    var userEmail = (_currentUser.email || '').toLowerCase();
     var resp = await fetch('https://lcpmedia.quickbase.com/v1/records/query', {
       method: 'POST',
       headers: {
@@ -946,15 +945,15 @@ async function loadMyTickets() {
       },
       body: JSON.stringify({
         from: TICKET_TABLE,
-        select: [3, 6, 7, 9, 12, 24, 29],
-        where: where,
+        select: [3, 6, 7, 9, 12, 24, 29, 31],
         sortBy: [{ fieldId: 29, order: 'DESC' }],
-        options: { top: 50 }
+        options: { top: 100 }
       })
     });
     if (!resp.ok) throw new Error('Failed to load tickets');
     var data = await resp.json();
-    _myTickets = (data.data || []).map(function(r) {
+    var allTickets = (data.data || []).map(function(r) {
+      var createdBy = r[31] ? (r[31].value ? r[31].value.email || r[31].value : '') : '';
       return {
         id: r[3] ? r[3].value : '',
         subject: r[6] ? r[6].value : '',
@@ -962,9 +961,16 @@ async function loadMyTickets() {
         priority: r[9] ? r[9].value : '',
         status: r[12] ? r[12].value : '',
         ticketId: r[24] ? r[24].value : '',
-        dateOpened: r[29] ? r[29].value : ''
+        dateOpened: r[29] ? r[29].value : '',
+        createdBy: String(createdBy).toLowerCase()
       };
     });
+    // Filter to current user's tickets
+    if (userEmail) {
+      _myTickets = allTickets.filter(function(t) { return t.createdBy === userEmail; });
+    } else {
+      _myTickets = allTickets;
+    }
     renderDrawerTickets();
   } catch(e) {
     document.getElementById('ticketDrawerList').innerHTML =
