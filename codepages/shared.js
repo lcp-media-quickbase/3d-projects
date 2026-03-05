@@ -105,7 +105,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.1.8';
+var LCP_VERSION = 'v3.2.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -928,6 +928,7 @@ function viewAsChanged(val) {
     }
     console.log('[ViewAs] Restored to real user');
     window.buildDashboard();
+    renderTestBanner();
     return;
   }
 
@@ -954,6 +955,56 @@ function viewAsChanged(val) {
     }
   }
   window.buildDashboard();
+}
+
+
+function renderTestBanner() {
+  var existing = document.getElementById('testBanner');
+  if (!_realUser) {
+    if (existing) existing.remove();
+    var sel = document.getElementById('viewAsSelect');
+    if (sel) sel.style.display = '';
+    return;
+  }
+  // Hide dropdown when in test mode
+  var sel = document.getElementById('viewAsSelect');
+  if (sel) sel.style.display = 'none';
+
+  // Build label
+  var label = 'Unknown';
+  var selEl = document.getElementById('viewAsSelect');
+  if (_currentUser.email && _currentUser.email !== _realUser.email) {
+    var u = _qbUsers.find(function(x) { return x.email === _currentUser.email; });
+    label = u ? (u.name || u.email) : _currentUser.email;
+  }
+  if (_currentUser.role !== _realUser.role) {
+    var roleNames = {};
+    roleNames[ROLE.VIEWER] = 'Viewer';
+    roleNames[ROLE.ADMIN] = 'Administrator';
+    roleNames[ROLE.LEADERSHIP] = 'Poland Leadership';
+    roleNames[ROLE.SENIORS] = 'Poland Seniors';
+    roleNames[ROLE.ADMIN_COPY] = 'Administrator';
+    label = roleNames[_currentUser.role] || 'Role ' + _currentUser.role;
+  }
+
+  if (!existing) {
+    existing = document.createElement('div');
+    existing.id = 'testBanner';
+    // Insert after app-header
+    var header = document.querySelector('.app-header');
+    if (header) header.parentNode.insertBefore(existing, header.nextSibling);
+  }
+  existing.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 20px;background:#d4380d;color:#fff;font-size:12px;font-weight:600;flex-shrink:0;z-index:60';
+  existing.innerHTML =
+    '<span style="opacity:0.8">⚠ TESTING AS:</span> ' +
+    '<span>' + escapeHtml(label) + '</span>' +
+    '<button onclick="exitTestMode()" style="margin-left:12px;padding:3px 12px;border:1px solid rgba(255,255,255,0.4);border-radius:4px;background:rgba(255,255,255,0.15);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Exit Test Mode</button>';
+}
+
+function exitTestMode() {
+  var sel = document.getElementById('viewAsSelect');
+  if (sel) sel.value = 'me';
+  viewAsChanged('me');
 }
 
 function populateViewAsUsers() {
