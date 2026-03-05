@@ -835,7 +835,7 @@ async function submitTicket() {
   if (link) record[TICKET_FIELD.webLink] = {value: link};
 
   try {
-    var resp = await fetch('https://lcpmedia.quickbase.com/v1/records', {
+    var resp = await fetch('https://api.quickbase.com/v1/records', {
       method: 'POST',
       headers: {
         'QB-Realm-Hostname': 'lcpmedia.quickbase.com',
@@ -936,7 +936,7 @@ function filterDrawerTickets(filter) {
 async function loadMyTickets() {
   try {
     var userEmail = (_currentUser.email || '').toLowerCase();
-    var resp = await fetch('https://lcpmedia.quickbase.com/v1/records/query', {
+    var resp = await fetch('https://api.quickbase.com/v1/records/query', {
       method: 'POST',
       headers: {
         'QB-Realm-Hostname': 'lcpmedia.quickbase.com',
