@@ -963,8 +963,9 @@ function filterDrawerTickets(filter) {
 }
 
 async function loadMyTickets() {
-  await resolveCurrentUserEmail();
+  await resolveCurrentUser();
   try {
+    var userId = _currentUser.userId || '';
     var userEmail = (_currentUser.email || '').toLowerCase();
     var resp = await fetch('https://api.quickbase.com/v1/records/query', {
       method: 'POST',
@@ -983,7 +984,9 @@ async function loadMyTickets() {
     if (!resp.ok) throw new Error('Failed to load tickets');
     var data = await resp.json();
     var allTickets = (data.data || []).map(function(r) {
-      var createdBy = r[31] ? (r[31].value ? r[31].value.email || r[31].value : '') : '';
+      var cb = r[31] ? r[31].value : null;
+      var createdById = cb ? (cb.id || cb.userId || String(cb)) : '';
+      var createdByEmail = cb ? (cb.email || '').toLowerCase() : '';
       return {
         id: r[3] ? r[3].value : '',
         subject: r[6] ? r[6].value : '',
@@ -992,12 +995,15 @@ async function loadMyTickets() {
         status: r[12] ? r[12].value : '',
         ticketId: r[24] ? r[24].value : '',
         dateOpened: r[29] ? r[29].value : '',
-        createdBy: String(createdBy).toLowerCase()
+        createdById: String(createdById),
+        createdByEmail: createdByEmail
       };
     });
-    // Filter to current user's tickets
-    if (userEmail) {
-      _myTickets = allTickets.filter(function(t) { return t.createdBy === userEmail; });
+    // Filter to current user's tickets by user ID first, fallback to email
+    if (userId) {
+      _myTickets = allTickets.filter(function(t) { return t.createdById === userId; });
+    } else if (userEmail) {
+      _myTickets = allTickets.filter(function(t) { return t.createdByEmail === userEmail; });
     } else {
       _myTickets = allTickets;
     }
