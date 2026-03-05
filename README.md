@@ -1,85 +1,117 @@
-# LCP Media — QuickBase Project Management
+# LCP Media — 3D Projects Dashboard
 
-Resource scheduling and project management Code Pages for the LCP Media 3D production team. Replaces TeamDeck with a native QuickBase solution.
+Single-page tabbed dashboard for the LCP Media 3D production team. Manages resource scheduling, vacation requests, utilization reports, and project administration — all within one QuickBase Code Page.
 
 ## Architecture
 
 ```
-GitHub (this repo)                    jsDelivr CDN                    QuickBase Code Pages
-──────────────────────────────────────────────────────────────────────────────────────────
-main branch                       → @main/codepages/*              → Production (IDs 12-18)
-staging branch                    → @staging/codepages/*           → Staging (IDs TBD)
-feature branches (nick/*, etc.)   → localhost (local dev)          → N/A
+QB Code Page (shell)          jsDelivr CDN                    GitHub
+─────────────────────────────────────────────────────────────────────
+dashboard shell (ID 20)  →  reads version.json (@main)  →  this repo
+                         →  loads @{tag}/codepages/*     →  tagged release
 ```
 
-**Local dev:** Open HTML files in browser → detects localhost → prompts for QB User Token.  
-**Staging:** QB Code Pages load from `@staging` jsDelivr URLs → test with real QB session auth.  
-**Production:** QB Code Pages load from `@main` jsDelivr URLs → live for the Poland team.
+**Shell:** Uploaded once to QB. Reads `version.json` from raw GitHub to get the current tag, then loads all code from jsDelivr at that tagged version. Never needs re-uploading.
 
-## QuickBase App
+**Deploy:** Push code → tag → update `version.json` → push. Users get the new version on next page load.
+
+## QuickBase
 
 - **App ID:** `bu8tkk77g`
 - **Realm:** `lcpmedia.quickbase.com`
+- **Dashboard Code Page ID:** 20
 
-### Code Page IDs (Production)
-
-| Page | QB Page ID | Description |
-|---|---|---|
-| `shared.css` | 16 | Design system — dark theme, components |
-| `shared.js` | 17 | QB API client, auth, nav, data loaders |
-| `scheduler.html` | 15 | Gantt resource calendar |
-| `admin.html` | 12 | People, projects, POD management |
-| `reports.html` | 14 | Utilization dashboards, capacity analysis |
-| `timesheets.html` | 18 | Weekly time entry (placeholder) |
-| `leave.html` | 13 | PTO/sick leave management (placeholder) |
-
-### Table IDs
+### Tables
 
 | Table | ID | Purpose |
 |---|---|---|
 | Pods | `bu8tt69gx` | Production POD groups |
-| People | `bu8ttwq2f` | Team members (key field: TeamDeck ID, FID 23) |
-| Projects | `bvaitp9x5` | Full project records |
-| Assignments | `bvu4s9te6` | Resource scheduling (replaces TeamDeck bookings) |
-| Draft Milestones | `bvu4tbpms` | Draft phase milestones per project |
+| People | `bu8ttwq2f` | Team members |
+| Projects | `bvaitp9x5` | Project records |
+| Assignments | `bvu4s9te6` | Resource scheduling (Gantt) |
+| Draft Milestones | `bvu4tbpms` | Draft phase milestones |
+| Vacations | `bvu7e3p7c` | Time-off requests |
 
-## Setup
+### Cross-App: Ticket System
 
-### Local Development
+| App | Table | Purpose |
+|---|---|---|
+| `btnit6q26` | `btnit9gpf` | Support tickets (Submit Ticket button) |
 
-```bash
-git clone https://github.com/lcp-media-quickbase/3d-projects.git
-cd 3d-projects/codepages
-# Open any HTML file in browser
-# It will prompt for a QB User Token (get from QB > My Preferences > User Token)
+### Roles
+
+| Role ID | Name | Tabs Visible |
+|---|---|---|
+| 12, 15 | Administrator | All tabs |
+| 13 | Poland Leadership | Scheduler, Pre-Production, Quotes, Reports, Timesheets, Vacations |
+| 14 | Poland Seniors | Scheduler, Pre-Production, Quotes, Reports, Timesheets, Vacations |
+| 10 | Viewer | Scheduler, Pre-Production, Quotes, Timesheets, Vacations |
+
+## File Structure
+
+```
+codepages/
+├── shared.css          Design system (Aileron font, LCP Blue #68B6E5)
+├── shared.js           Auth, API client, role detection, data cache, tab framework
+├── dashboard.html      Single-page shell — tab container + app header
+├── version.json        Current tagged version pointer
+└── tabs/
+    ├── scheduler.js    Gantt resource calendar + drag/resize + vacation blocks
+    ├── preproduction.js Pre-production asset pipeline (placeholder)
+    ├── quotes.js       Quote management (placeholder)
+    ├── reports.js      Utilization dashboards, capacity analytics
+    ├── timesheets.js   Weekly time entry (placeholder)
+    ├── vacations.js    Time-off requests, approvals, status dashboard
+    └── admin.js        People/project/POD CRUD, overview stats
+
+shells/
+└── production/
+    └── dashboard.html  QB Code Page shell (upload once, never touch again)
 ```
 
-### Deploy to QB
+## Auth
 
-1. Edit files in a feature branch
-2. PR → `staging` → test at staging QB Code Pages
-3. PR → `main` → production auto-updates via jsDelivr CDN
+The dashboard detects its environment automatically:
 
-### QB Code Page Setup (one-time)
-
-Each QB Code Page is a thin HTML shell that loads from jsDelivr. Upload shell files from `shells/production/` to QB once — never touch again.
+- **QB Code Page:** Session cookies via `credentials: 'include'`. QB enforces role permissions on all API calls.
+- **Local dev:** Prompts for QB User Token. Open any HTML file in a browser.
 
 ## Branching
 
 ```
-nick/feature-name ──PR──→ staging ──PR──→ main
- her/feature-name ──PR──→ staging ──PR──→ main
+nick/feature-name  ──PR──→  main
+diana/feature-name ──PR──→  main
 ```
 
 - **main:** Always deployable. Poland team uses this.
-- **staging:** Integration testing with real QB data/permissions.
-- **Feature branches:** Prefixed with your name. Work independently.
+- Feature branches prefixed with your name.
 
-## Auth
+## Deploy Process
 
-Code Pages detect their environment automatically:
+```bash
+git add -A && git commit -m "description"
+git push origin main
+git tag vX.Y.Z
+git push origin vX.Y.Z
+# Update version.json to point to the new tag
+echo '{"version":"vX.Y.Z"}' > codepages/version.json
+git add codepages/version.json && git commit -m "bump version" && git push
+```
 
-- **QB Code Page (same-origin):** Uses logged-in user's session cookies. QB enforces role permissions — table, field, and row-level.
-- **Local dev:** Prompts for QB User Token. Data access matches the token owner's permissions.
+Users get the new version within ~5 minutes (raw GitHub cache TTL on version.json).
 
-No tokens stored in the repo. No secrets in code.
+## Local Development
+
+```bash
+git clone https://github.com/lcp-media-quickbase/3d-projects.git
+cd 3d-projects/codepages
+# Open dashboard.html in browser → prompts for QB User Token
+```
+
+## Brand
+
+- **Font:** Aileron (Regular 400, SemiBold 600, Bold 700)
+- **Primary Color:** `#68B6E5` (LCP Blue, Pantone 292 C)
+- **Leading:** 125% proportion (per LCP Graphic Standards Manual)
+- **Dark mode logo:** White/green horizontal lockup
+- **Light mode logo:** Full color horizontal lockup
