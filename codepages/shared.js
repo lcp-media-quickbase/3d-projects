@@ -101,7 +101,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v2.8.5';
+var LCP_VERSION = 'v2.9.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -761,6 +761,13 @@ function renderAppHeader() {
       '<input type="text" id="appSearchInput" placeholder="Search this app..." autocomplete="off">' +
     '</div>' +
     '<div class="app-header-right">' +
+      (_currentUser.isAdmin ? '<select id="roleTestSelect" class="form-select" style="font-size:11px;padding:4px 8px;width:auto;min-width:0;border-color:var(--border);background:var(--surface2);color:var(--text-muted)" onchange="testAsRole(this.value)">' +
+        '<option value="">My Role</option>' +
+        '<option value="10">Viewer</option>' +
+        '<option value="13">Poland Leadership</option>' +
+        '<option value="14">Poland Seniors</option>' +
+        '<option value="12">Administrator</option>' +
+      '</select>' : '') +
       '<button class="btn-ticket" onclick="openTicketDrawer()">' + ICONS.ticket + ' Tickets</button>' +
     '</div>' +
   '</div>';
@@ -768,6 +775,7 @@ function renderAppHeader() {
 
 function openTicket() {
   var user = currentUser();
+  var userEmail = _currentUser.email || '';
   // Close the ticket list drawer if open, then open form drawer
   _ticketDrawerOpen = true;
 
@@ -852,6 +860,11 @@ async function submitTicket() {
 
   var record = {};
   record[TICKET_FIELD.subject] = {value: subject};
+  // Auto-set from current user
+  if (_currentUser.email) {
+    record[TICKET_FIELD.contactEmail] = {value: _currentUser.email};
+    record[TICKET_FIELD.requestedBy] = {value: _currentUser.email};
+  }
   record[TICKET_FIELD.details] = {value: document.getElementById('tktDetails').value};
   record[TICKET_FIELD.ticketType] = {value: document.getElementById('tktType').value};
   record[TICKET_FIELD.priority] = {value: document.getElementById('tktPriority').value};
@@ -889,6 +902,36 @@ async function submitTicket() {
   }
 }
 
+
+
+// ─── TEST AS ROLE (admin only) ───────────────────────────────
+var _realRole = null;
+
+function testAsRole(roleId) {
+  if (!_currentUser.isAdmin && _realRole === null) return;
+  
+  if (_realRole === null) _realRole = _currentUser.role;
+  
+  if (!roleId || roleId === '') {
+    // Restore real role
+    _currentUser.role = _realRole;
+    _currentUser.isAdmin = (_realRole === ROLE.ADMIN || _realRole === ROLE.ADMIN_COPY);
+    _currentUser.isLeadership = (_realRole === ROLE.LEADERSHIP);
+    _currentUser.isSenior = (_realRole === ROLE.SENIORS);
+    _realRole = null;
+    console.log('[Role] Restored to real role:', _currentUser.role);
+  } else {
+    var r = parseInt(roleId);
+    _currentUser.role = r;
+    _currentUser.isAdmin = (r === ROLE.ADMIN || r === ROLE.ADMIN_COPY);
+    _currentUser.isLeadership = (r === ROLE.LEADERSHIP);
+    _currentUser.isSenior = (r === ROLE.SENIORS);
+    console.log('[Role] Testing as role:', r);
+  }
+  
+  // Re-render the entire dashboard with new role
+  window.buildDashboard();
+}
 
 // ─── TICKET DRAWER ───────────────────────────────────────────
 var _ticketDrawerOpen = false;
@@ -1023,9 +1066,9 @@ function renderDrawerTickets() {
 
   var filtered = _myTickets;
   if (_drawerFilter === 'open') {
-    filtered = _myTickets.filter(function(t) { return t.status && t.status !== 'Closed' && t.status !== 'Resolved'; });
+    filtered = _myTickets.filter(function(t) { return t.status && t.status.charAt(0) === 'O'; });
   } else if (_drawerFilter === 'closed') {
-    filtered = _myTickets.filter(function(t) { return t.status === 'Closed' || t.status === 'Resolved'; });
+    filtered = _myTickets.filter(function(t) { return t.status && t.status.charAt(0) === 'C'; });
   }
 
   if (!filtered.length) {
@@ -1037,9 +1080,10 @@ function renderDrawerTickets() {
     var priColor = t.priority === '01-Critical' ? 'var(--danger)' :
                    t.priority === '02-High' ? 'var(--warning)' :
                    t.priority === '03-Medium' ? 'var(--accent)' : 'var(--text-dim)';
-    var statusClass = (!t.status || t.status === 'Open' || t.status === 'New') ? 'badge-warning' :
-                      (t.status === 'In Progress') ? 'badge-info' :
-                      (t.status === 'Closed' || t.status === 'Resolved') ? 'badge-success' : 'badge-neutral';
+    var statusClass = (!t.status) ? 'badge-neutral' :
+                      t.status.charAt(0) === 'C' ? 'badge-success' :
+                      (t.status.indexOf('Progress') !== -1 || t.status.indexOf('Assigned') !== -1) ? 'badge-info' :
+                      t.status.indexOf('Stalled') !== -1 ? 'badge-danger' : 'badge-warning';
     var dateStr = '';
     if (t.dateOpened) {
       var d = new Date(t.dateOpened);
