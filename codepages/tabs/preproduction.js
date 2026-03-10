@@ -87,8 +87,9 @@ var ppCSS = `
   .pp-modal-close:hover { color:var(--text); background:var(--border); }
   .pp-badge { display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; letter-spacing:0.02em; }
   .pp-modal-body { flex:1; overflow-y:auto; padding:0; display:flex; flex-direction:column; min-height:0; }
-  .pp-modal-info { padding:14px 20px 16px; display:flex; gap:24px; border-bottom:1px solid var(--border); flex-shrink:0; }
-  .pp-modal-info-col { display:flex; flex-direction:column; gap:12px; flex:1; }
+  .pp-modal-info { padding:14px 20px 16px; display:flex; gap:24px; border-bottom:1px solid var(--border); flex-shrink:0; align-items:stretch; }
+  .pp-modal-info-col { display:flex; flex-direction:column; gap:12px; min-width:0; }
+  .pp-modal-rte { flex:1; min-height:100px; overflow-y:auto; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); font-size:13px; color:var(--text); line-height:1.6; outline:none; transition:border-color 0.15s; }
   .pp-modal-info-item { display:flex; flex-direction:column; gap:4px; }
   .pp-modal-info-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
   .pp-modal-info-value { font-size:13px; color:var(--text); }
@@ -101,7 +102,6 @@ var ppCSS = `
   .pp-modal-rte-btn { width:28px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background:var(--bg); color:var(--text); cursor:pointer; border-radius:4px; font-size:12px; font-weight:700; transition:background 0.15s, border-color 0.15s; flex-shrink:0; }
   .pp-modal-rte-btn:hover { background:var(--border); }
   .pp-modal-rte-sep { width:1px; height:18px; background:var(--border); margin:0 2px; flex-shrink:0; }
-  .pp-modal-rte { min-height:80px; max-height:180px; overflow-y:auto; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); font-size:13px; color:var(--text); line-height:1.6; outline:none; transition:border-color 0.15s; }
   .pp-modal-rte:focus { border-color:var(--accent); }
   .pp-modal-rte ul, .pp-modal-rte ol { padding-left:20px; margin:4px 0; }
   .pp-modal-rte-save { margin-left:auto; }
@@ -463,7 +463,9 @@ window.ppOpenModal = function(id) {
   var proj = getProj(id);
   var overlay = getOrCreateModal();
 
-  overlay.querySelector('.pp-modal-title').textContent = proj ? (proj.name || '\u2014') : '';
+  var titleText = proj ? (proj.name || '\u2014') : '';
+  if (proj && proj.fid54) titleText += ' \u2014 ' + proj.fid54;
+  overlay.querySelector('.pp-modal-title').textContent = titleText;
 
   var typeColor  = (proj && TYPE_COLORS[proj.type])   || '#868e96';
   var stageColor = (proj && STAGE_COLORS[proj.stage]) || '#868e96';
@@ -476,15 +478,11 @@ window.ppOpenModal = function(id) {
   var notesHtml = (proj && proj.fid36) || '';
   overlay.querySelector('.pp-modal-body').innerHTML =
     '<div class="pp-modal-info">' +
-      '<div class="pp-modal-info-col">' +
-        '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Company</span>' +
-          '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid54) || '\u2014') + '</span></div>' +
-        '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Sales Rep</span>' +
-          '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid62) || '\u2014') + '</span></div>' +
+      '<div class="pp-modal-info-col" style="flex:1">' +
         '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Deal Closed</span>' +
           '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid55) || '\u2014') + '</span></div>' +
-      '</div>' +
-      '<div class="pp-modal-info-col">' +
+        '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Sales Rep</span>' +
+          '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid62) || '\u2014') + '</span></div>' +
         '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Project #</span>' +
           '<input class="pp-modal-edit-input" id="ppEditProjNum" value="' + escapeHtml((proj && proj.number) || '') + '"' +
           ' onblur="ppSaveField(' + id + ',' + FIELD.PROJECTS.number + ',this.value,\'number\')"' +
@@ -494,20 +492,20 @@ window.ppOpenModal = function(id) {
             '<option value="">Loading\u2026</option>' +
           '</select></div>' +
       '</div>' +
-    '</div>' +
-    '<div class="pp-modal-notes">' +
-      '<span class="pp-modal-info-label">Notes</span>' +
-      '<div class="pp-modal-rte-toolbar">' +
-        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'bold\')"         title="Bold"><b>B</b></button>' +
-        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'italic\')"       title="Italic"><i>I</i></button>' +
-        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'underline\')"    title="Underline"><u>U</u></button>' +
-        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'strikeThrough\')" title="Strikethrough"><s>S</s></button>' +
-        '<span class="pp-modal-rte-sep"></span>' +
-        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertUnorderedList\')" title="Bullet list" style="font-size:14px">•</button>' +
-        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertOrderedList\')"   title="Numbered list" style="font-size:10px;width:32px">1.</button>' +
-        '<button class="btn btn-sm pp-modal-rte-save" onclick="ppSaveNotes(' + id + ')">Save Notes</button>' +
+      '<div class="pp-modal-info-col" style="flex:2">' +
+        '<span class="pp-modal-info-label">Notes</span>' +
+        '<div class="pp-modal-rte-toolbar">' +
+          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'bold\')"              title="Bold"><b>B</b></button>' +
+          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'italic\')"            title="Italic"><i>I</i></button>' +
+          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'underline\')"         title="Underline"><u>U</u></button>' +
+          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'strikeThrough\')"     title="Strikethrough"><s>S</s></button>' +
+          '<span class="pp-modal-rte-sep"></span>' +
+          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertUnorderedList\')" title="Bullet list" style="font-size:14px">•</button>' +
+          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertOrderedList\')"   title="Numbered list" style="font-size:10px;width:32px">1.</button>' +
+          '<button class="btn btn-sm pp-modal-rte-save" onclick="ppSaveNotes(' + id + ')">Save Notes</button>' +
+        '</div>' +
+        '<div class="pp-modal-rte" id="ppNotesEditor" contenteditable="true"></div>' +
       '</div>' +
-      '<div class="pp-modal-rte" id="ppNotesEditor" contenteditable="true"></div>' +
     '</div>' +
     '<div class="pp-modal-tabs">' +
       '<button class="pp-modal-tab-btn active" data-tab="scope"   onclick="ppModalTab(\'scope\')">Project Scope</button>' +
