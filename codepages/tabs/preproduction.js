@@ -87,7 +87,8 @@ var ppCSS = `
   .pp-modal-close:hover { color:var(--text); background:var(--border); }
   .pp-badge { display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; letter-spacing:0.02em; }
   .pp-modal-body { flex:1; overflow-y:auto; padding:0; display:flex; flex-direction:column; min-height:0; }
-  .pp-modal-info { padding:14px 20px 16px; display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .pp-modal-info { padding:14px 20px 16px; display:flex; gap:24px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .pp-modal-info-col { display:flex; flex-direction:column; gap:12px; flex:1; }
   .pp-modal-info-item { display:flex; flex-direction:column; gap:4px; }
   .pp-modal-info-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
   .pp-modal-info-value { font-size:13px; color:var(--text); }
@@ -95,6 +96,15 @@ var ppCSS = `
   .pp-modal-edit-input:focus { border-color:var(--accent); }
   .pp-modal-select { font-size:13px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:4px 8px; width:100%; font-family:inherit; cursor:pointer; outline:none; transition:border-color 0.15s; }
   .pp-modal-select:focus { border-color:var(--accent); }
+  .pp-modal-notes { padding:14px 20px 16px; border-bottom:1px solid var(--border); flex-shrink:0; display:flex; flex-direction:column; gap:8px; }
+  .pp-modal-rte-toolbar { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .pp-modal-rte-btn { width:28px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background:var(--bg); color:var(--text); cursor:pointer; border-radius:4px; font-size:12px; font-weight:700; transition:background 0.15s, border-color 0.15s; flex-shrink:0; }
+  .pp-modal-rte-btn:hover { background:var(--border); }
+  .pp-modal-rte-sep { width:1px; height:18px; background:var(--border); margin:0 2px; flex-shrink:0; }
+  .pp-modal-rte { min-height:80px; max-height:180px; overflow-y:auto; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); font-size:13px; color:var(--text); line-height:1.6; outline:none; transition:border-color 0.15s; }
+  .pp-modal-rte:focus { border-color:var(--accent); }
+  .pp-modal-rte ul, .pp-modal-rte ol { padding-left:20px; margin:4px 0; }
+  .pp-modal-rte-save { margin-left:auto; }
   .pp-modal-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; flex-shrink:0; }
   .pp-modal-tab-btn { padding:9px 14px; font-size:12px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:none; font-family:inherit; border-bottom:2px solid transparent; transition:all 0.15s; white-space:nowrap; }
   .pp-modal-tab-btn:hover { color:var(--text); }
@@ -162,7 +172,7 @@ async function ppLoadData() {
     TABLES.projects,
     [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.number,
      FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod,
-     FIELD.PROJECTS.fid49, FIELD.PROJECTS.fid54, FIELD.PROJECTS.fid55,
+     FIELD.PROJECTS.fid36, FIELD.PROJECTS.fid49, FIELD.PROJECTS.fid54, FIELD.PROJECTS.fid55,
      FIELD.PROJECTS.fid62, FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid137],
     '{' + FIELD.PROJECTS.stage + '.EX.\'Pre-Production\'}'
   );
@@ -182,7 +192,8 @@ async function ppLoadData() {
         var p = v.split('-');
         return p.length === 3 ? p[1] + '/' + p[2] + '/' + p[0].slice(2) : v;
       })(val(r, FIELD.PROJECTS.fid55)),
-      // Raw HTML from formula rich-text fields — rendered directly as buttons
+      // Raw HTML from formula/rich-text fields
+      fid36:  (r[FIELD.PROJECTS.fid36]  && r[FIELD.PROJECTS.fid36].value)  || '',
       fid49:  (r[FIELD.PROJECTS.fid49]  && r[FIELD.PROJECTS.fid49].value)  || '',
       fid85:  (r[FIELD.PROJECTS.fid85]  && r[FIELD.PROJECTS.fid85].value)  || '',
       fid137: (r[FIELD.PROJECTS.fid137] && r[FIELD.PROJECTS.fid137].value) || ''
@@ -462,22 +473,41 @@ window.ppOpenModal = function(id) {
     ? '<span class="pp-badge" style="background:' + stageColor + '22;color:' + stageColor + '">' + escapeHtml(proj.stage) + '</span>' : '';
   overlay.querySelector('.pp-modal-header-badges').innerHTML = typeBadge + stageBadge;
 
+  var notesHtml = (proj && proj.fid36) || '';
   overlay.querySelector('.pp-modal-body').innerHTML =
     '<div class="pp-modal-info">' +
-      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Company</span>' +
-        '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid54) || '\u2014') + '</span></div>' +
-      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Deal Closed</span>' +
-        '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid55) || '\u2014') + '</span></div>' +
-      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Project #</span>' +
-        '<input class="pp-modal-edit-input" id="ppEditProjNum" value="' + escapeHtml((proj && proj.number) || '') + '"' +
-        ' onblur="ppSaveField(' + id + ',' + FIELD.PROJECTS.number + ',this.value,\'number\')"' +
-        ' onkeydown="if(event.key===\'Enter\')this.blur()"></div>' +
-      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">POD</span>' +
-        '<select class="pp-modal-select" id="ppEditPod" onchange="ppSaveField(' + id + ',' + FIELD.PROJECTS.pod + ',this.value,\'pod\')">' +
-          '<option value="">Loading\u2026</option>' +
-        '</select></div>' +
-      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Sales Rep</span>' +
-        '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid62) || '\u2014') + '</span></div>' +
+      '<div class="pp-modal-info-col">' +
+        '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Company</span>' +
+          '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid54) || '\u2014') + '</span></div>' +
+        '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Sales Rep</span>' +
+          '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid62) || '\u2014') + '</span></div>' +
+        '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Deal Closed</span>' +
+          '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid55) || '\u2014') + '</span></div>' +
+      '</div>' +
+      '<div class="pp-modal-info-col">' +
+        '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Project #</span>' +
+          '<input class="pp-modal-edit-input" id="ppEditProjNum" value="' + escapeHtml((proj && proj.number) || '') + '"' +
+          ' onblur="ppSaveField(' + id + ',' + FIELD.PROJECTS.number + ',this.value,\'number\')"' +
+          ' onkeydown="if(event.key===\'Enter\')this.blur()"></div>' +
+        '<div class="pp-modal-info-item"><span class="pp-modal-info-label">POD</span>' +
+          '<select class="pp-modal-select" id="ppEditPod" onchange="ppSaveField(' + id + ',' + FIELD.PROJECTS.pod + ',this.value,\'pod\')">' +
+            '<option value="">Loading\u2026</option>' +
+          '</select></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="pp-modal-notes">' +
+      '<span class="pp-modal-info-label">Notes</span>' +
+      '<div class="pp-modal-rte-toolbar">' +
+        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'bold\')"         title="Bold"><b>B</b></button>' +
+        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'italic\')"       title="Italic"><i>I</i></button>' +
+        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'underline\')"    title="Underline"><u>U</u></button>' +
+        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'strikeThrough\')" title="Strikethrough"><s>S</s></button>' +
+        '<span class="pp-modal-rte-sep"></span>' +
+        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertUnorderedList\')" title="Bullet list" style="font-size:14px">•</button>' +
+        '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertOrderedList\')"   title="Numbered list" style="font-size:10px;width:32px">1.</button>' +
+        '<button class="btn btn-sm pp-modal-rte-save" onclick="ppSaveNotes(' + id + ')">Save Notes</button>' +
+      '</div>' +
+      '<div class="pp-modal-rte" id="ppNotesEditor" contenteditable="true"></div>' +
     '</div>' +
     '<div class="pp-modal-tabs">' +
       '<button class="pp-modal-tab-btn active" data-tab="scope"   onclick="ppModalTab(\'scope\')">Project Scope</button>' +
@@ -489,6 +519,10 @@ window.ppOpenModal = function(id) {
     '<div class="pp-modal-tab-pane" id="ppModalPane-assets">' +
       '<div class="pp-modal-report-placeholder">Technical Assets report coming soon</div>' +
     '</div>';
+
+  // Set existing notes HTML into contenteditable
+  var notesEl = overlay.querySelector('#ppNotesEditor');
+  if (notesEl) notesEl.innerHTML = notesHtml;
 
   // Populate POD dropdown async from cache
   getCachedPods().then(function(pods) {
@@ -533,6 +567,18 @@ window.ppSaveField = function(projId, fieldId, value, localKey) {
       showToast('Failed to save.', 'error');
       console.error('[PreProd]', err);
     });
+};
+
+window.ppRteCmd = function(cmd) {
+  document.execCommand(cmd, false, null);
+  var el = document.getElementById('ppNotesEditor');
+  if (el) el.focus();
+};
+
+window.ppSaveNotes = function(projId) {
+  var el = document.getElementById('ppNotesEditor');
+  if (!el) return;
+  ppSaveField(projId, FIELD.PROJECTS.fid36, el.innerHTML, 'fid36');
 };
 
 // ─── GLOBALS ───────────────────────────────────────────────────
