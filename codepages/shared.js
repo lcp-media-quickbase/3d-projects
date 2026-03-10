@@ -22,7 +22,8 @@ var TABLES = {
   projects: 'bvaitp9x5',
   milestones: 'bvu4tbpms',
   pods: 'bu8tt69gx',
-  vacations: 'bvu7e3p7c'
+  vacations: 'bvu7e3p7c',
+  scope: 'btsstpjdq'
 };
 
 var FIELD = {
@@ -34,6 +35,7 @@ var FIELD = {
   PROJECTS: { id:3, name:19, number:23, type:26, stage:27, pod:82, deal:52, fid36:36, fid49:49, fid54:54, fid55:55, fid62:62, fid85:85, fid137:137 },
   MILESTONES: { id:3, project:6, projectName:7, projectNum:8, name:10, phase:11, start:12, end:13 },
   PODS: { id:3, name:6, tdId:11 },
+  SCOPE: { id:3, assetName:6, totalValue:26, pricePer:27, quantity:25, stillsCount:28, panosCount:29, product:45, projectRef:66 },
   VACATION: { id:3, person:6, personName:7, personEmail:8, personPod:9, personTdId:10, start:11, end:12, type:13, status:14, notes:15 }
 };
 
@@ -105,7 +107,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.4.9';
+var LCP_VERSION = 'v3.5.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────

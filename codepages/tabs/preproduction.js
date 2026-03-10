@@ -10,6 +10,21 @@ var ppColOrder  = {};   // { colKey: [id, id, ...] } — manual ordering per col
 var ppDragId    = null; // project id being dragged
 var ppDragSrcCol = null; // source column key
 
+// Scope report state
+var ppScopeData   = [];
+var ppScopeSortState = { col: 'product', dir: 'asc' };
+var ppScopeFilter = '';
+
+var SCOPE_COLS = [
+  { key: 'product',     label: 'Product',     fid: FIELD.SCOPE.product,     type: 'text'     },
+  { key: 'assetName',   label: 'Asset Name',  fid: FIELD.SCOPE.assetName,   type: 'text'     },
+  { key: 'quantity',    label: 'Qty',         fid: FIELD.SCOPE.quantity,    type: 'num'      },
+  { key: 'stillsCount', label: 'Stills',      fid: FIELD.SCOPE.stillsCount, type: 'num'      },
+  { key: 'panosCount',  label: 'Panos',       fid: FIELD.SCOPE.panosCount,  type: 'num'      },
+  { key: 'pricePer',    label: 'Price Per',   fid: FIELD.SCOPE.pricePer,    type: 'currency' },
+  { key: 'totalValue',  label: 'Total Value', fid: FIELD.SCOPE.totalValue,  type: 'currency' }
+];
+
 var TYPE_COLORS = {
   'Urgent':      '#ff4757',
   'Not Started': '#ffa502',
@@ -126,6 +141,21 @@ var ppCSS = `
   .kanban-empty { padding:24px 14px; text-align:center; font-size:12px; color:var(--text-dim); }
   .pp-loading { display:flex; align-items:center; justify-content:center; flex:1; color:var(--text-dim); font-size:14px; }
   .pp-placeholder { display:flex; align-items:center; justify-content:center; flex:1; flex-direction:column; gap:12px; color:var(--text-dim); }
+  .pp-scope-toolbar { display:flex; gap:10px; align-items:center; flex-shrink:0; margin-bottom:10px; }
+  .pp-scope-filter { flex:1; max-width:260px; font-size:13px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:5px 10px; font-family:inherit; outline:none; transition:border-color 0.15s; }
+  .pp-scope-filter:focus { border-color:var(--accent); }
+  .pp-scope-count { font-size:12px; color:var(--text-dim); margin-left:auto; }
+  .pp-scope-table-wrap { flex:1; overflow-y:auto; min-height:0; border:1px solid var(--border); border-radius:8px; }
+  .pp-scope-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .pp-scope-th { padding:8px 12px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); text-align:left; background:var(--surface); border-bottom:1px solid var(--border); cursor:pointer; white-space:nowrap; user-select:none; position:sticky; top:0; z-index:1; transition:color 0.15s; }
+  .pp-scope-th:hover { color:var(--text); }
+  .pp-scope-th.sort-asc::after  { content:' \u2191'; color:var(--accent); }
+  .pp-scope-th.sort-desc::after { content:' \u2193'; color:var(--accent); }
+  .pp-scope-td { padding:7px 12px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:middle; }
+  .pp-scope-td-num { text-align:right; font-variant-numeric:tabular-nums; }
+  .pp-scope-table tbody tr:last-child td { border-bottom:none; }
+  .pp-scope-table tbody tr:hover td { background:rgba(104,182,229,0.06); }
+  .pp-scope-empty { text-align:center; color:var(--text-dim); font-style:italic; padding:24px; }
 `;
 
 // ─── HTML ──────────────────────────────────────────────────────
@@ -176,7 +206,7 @@ async function ppLoadData() {
   var rows = await qbQueryAll(
     TABLES.projects,
     [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.number,
-     FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod,
+     FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod, FIELD.PROJECTS.deal,
      FIELD.PROJECTS.fid36, FIELD.PROJECTS.fid49, FIELD.PROJECTS.fid54, FIELD.PROJECTS.fid55,
      FIELD.PROJECTS.fid62, FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid137],
     '{' + FIELD.PROJECTS.stage + '.EX.\'Pre-Production\'}'
@@ -190,6 +220,7 @@ async function ppLoadData() {
       type:   val(r, FIELD.PROJECTS.type),
       stage:  val(r, FIELD.PROJECTS.stage),
       pod:    val(r, FIELD.PROJECTS.pod),
+      deal:   val(r, FIELD.PROJECTS.deal),
       fid54:  val(r, FIELD.PROJECTS.fid54),
       fid62:  val(r, FIELD.PROJECTS.fid62),
       fid55:  (function(v) {
@@ -440,6 +471,110 @@ async function ppRefresh() {
   }
 }
 
+// ─── SCOPE REPORT ──────────────────────────────────────────────
+async function ppLoadScope(dealId) {
+  ppScopeData   = [];
+  ppScopeFilter = '';
+  ppScopeSortState = { col: 'product', dir: 'asc' };
+  var pane = document.getElementById('ppModalPane-scope');
+  if (!pane) return;
+  pane.innerHTML = '<div class="pp-loading">Loading\u2026</div>';
+  try {
+    var fids = [FIELD.SCOPE.id].concat(SCOPE_COLS.map(function(c) { return c.fid; }));
+    var rows = await qbQueryAll(
+      TABLES.scope, fids,
+      '{' + FIELD.SCOPE.projectRef + '.EX.' + dealId + '}'
+    );
+    ppScopeData = rows.map(function(r) {
+      var obj = { id: val(r, FIELD.SCOPE.id) };
+      SCOPE_COLS.forEach(function(c) { obj[c.key] = val(r, c.fid); });
+      return obj;
+    });
+    ppRenderScope();
+  } catch(err) {
+    var p = document.getElementById('ppModalPane-scope');
+    if (p) p.innerHTML = '<div class="pp-loading">Failed to load scope data.</div>';
+    console.error('[PreProd scope]', err);
+  }
+}
+
+function ppRenderScope() {
+  var pane = document.getElementById('ppModalPane-scope');
+  if (!pane) return;
+
+  var filter = ppScopeFilter.toLowerCase().trim();
+  var rows = ppScopeData.filter(function(r) {
+    if (!filter) return true;
+    return SCOPE_COLS.some(function(c) {
+      return String(r[c.key] || '').toLowerCase().indexOf(filter) >= 0;
+    });
+  });
+
+  var col = ppScopeSortState.col;
+  var dir = ppScopeSortState.dir === 'asc' ? 1 : -1;
+  rows.sort(function(a, b) {
+    var av = a[col] || '';
+    var bv = b[col] || '';
+    var colDef = SCOPE_COLS.find(function(c) { return c.key === col; });
+    if (colDef && (colDef.type === 'num' || colDef.type === 'currency')) {
+      return (parseFloat(av) || 0 - parseFloat(bv) || 0) * dir;
+    }
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+
+  var thead = SCOPE_COLS.map(function(c) {
+    var cls = ppScopeSortState.col === c.key ? ' sort-' + ppScopeSortState.dir : '';
+    return '<th class="pp-scope-th' + cls + '" onclick="ppScopeSetSort(\'' + c.key + '\')">' + escapeHtml(c.label) + '</th>';
+  }).join('');
+
+  var tbody = rows.length === 0
+    ? '<tr><td class="pp-scope-empty" colspan="' + SCOPE_COLS.length + '">No records found.</td></tr>'
+    : rows.map(function(r) {
+        return '<tr>' + SCOPE_COLS.map(function(c) {
+          var v = r[c.key];
+          var display = '';
+          if (v !== '' && v !== null && v !== undefined) {
+            if (c.type === 'currency') {
+              display = '$' + parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else {
+              display = escapeHtml(String(v));
+            }
+          }
+          var numCls = (c.type === 'num' || c.type === 'currency') ? ' pp-scope-td-num' : '';
+          return '<td class="pp-scope-td' + numCls + '">' + display + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+
+  pane.innerHTML =
+    '<div class="pp-scope-toolbar">' +
+      '<input class="pp-scope-filter" type="text" placeholder="Filter\u2026"' +
+        ' value="' + escapeHtml(ppScopeFilter) + '"' +
+        ' oninput="ppScopeFilterChange(this.value)">' +
+      '<span class="pp-scope-count">' + rows.length + ' of ' + ppScopeData.length + ' items</span>' +
+    '</div>' +
+    '<div class="pp-scope-table-wrap">' +
+      '<table class="pp-scope-table">' +
+        '<thead><tr>' + thead + '</tr></thead>' +
+        '<tbody>' + tbody + '</tbody>' +
+      '</table>' +
+    '</div>';
+}
+
+window.ppScopeSetSort = function(col) {
+  if (ppScopeSortState.col === col) {
+    ppScopeSortState.dir = ppScopeSortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    ppScopeSortState.col = col;
+    ppScopeSortState.dir = 'asc';
+  }
+  ppRenderScope();
+};
+
+window.ppScopeFilterChange = function(val) {
+  ppScopeFilter = val;
+  ppRenderScope();
+};
+
 // ─── MODAL ─────────────────────────────────────────────────────
 function getOrCreateModal() {
   var el = document.getElementById('ppModalOverlay');
@@ -523,9 +658,7 @@ window.ppOpenModal = function(id) {
       '<button class="pp-modal-tab-btn active" data-tab="scope"   onclick="ppModalTab(\'scope\')">Project Scope</button>' +
       '<button class="pp-modal-tab-btn"        data-tab="assets"  onclick="ppModalTab(\'assets\')">Technical Assets</button>' +
     '</div>' +
-    '<div class="pp-modal-tab-pane active" id="ppModalPane-scope">' +
-      '<div class="pp-modal-report-placeholder">Project Scope report coming soon</div>' +
-    '</div>' +
+    '<div class="pp-modal-tab-pane active" id="ppModalPane-scope"></div>' +
     '<div class="pp-modal-tab-pane" id="ppModalPane-assets">' +
       '<div class="pp-modal-report-placeholder">Technical Assets report coming soon</div>' +
     '</div>';
@@ -534,6 +667,15 @@ window.ppOpenModal = function(id) {
   var notesView = overlay.querySelector('#ppNotesView');
   if (notesView) {
     notesView.innerHTML = notesHtml || '<span class="pp-notes-empty">No notes yet. Click Edit to add notes.</span>';
+  }
+
+  // Load scope report
+  var dealId = proj && proj.deal;
+  if (dealId) {
+    ppLoadScope(dealId);
+  } else {
+    var scopePane = overlay.querySelector('#ppModalPane-scope');
+    if (scopePane) scopePane.innerHTML = '<div class="pp-loading">No deal reference on this project.</div>';
   }
 
   // Populate POD dropdown async from cache
