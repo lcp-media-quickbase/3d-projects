@@ -132,7 +132,11 @@ async function ppLoadData() {
       stage:  val(r, FIELD.PROJECTS.stage),
       pod:    val(r, FIELD.PROJECTS.pod),
       fid54:  val(r, FIELD.PROJECTS.fid54),
-      fid55:  val(r, FIELD.PROJECTS.fid55),
+      fid55:  (function(v) {
+        if (!v) return '';
+        var p = v.split('-');
+        return p.length === 3 ? p[1] + '/' + p[2] + '/' + p[0].slice(2) : v;
+      })(val(r, FIELD.PROJECTS.fid55)),
       // Raw HTML from formula rich-text fields — rendered directly as buttons
       fid49:  (r[FIELD.PROJECTS.fid49]  && r[FIELD.PROJECTS.fid49].value)  || '',
       fid85:  (r[FIELD.PROJECTS.fid85]  && r[FIELD.PROJECTS.fid85].value)  || '',
@@ -193,7 +197,7 @@ function renderKanban() {
           ' ondrop="ppCardDrop(event,' + p.id + ',\'' + col.key + '\')">' +
           '<div class="kanban-card-name">' + escapeHtml(p.name || '\u2014') + '</div>' +
           (p.fid54 ? '<div class="kanban-card-sub">'    + escapeHtml(p.fid54) + '</div>' : '') +
-          (p.fid55 ? '<div class="kanban-card-detail">' + escapeHtml(p.fid55) + '</div>' : '') +
+          (p.fid55 ? '<div class="kanban-card-detail">Deal Closed: ' + escapeHtml(p.fid55) + '</div>' : '') +
           (p.fid49 ? '<div class="kanban-card-btns"><span>' + p.fid49 + '</span></div>' : '') +
           (p.fid85 ? '<div class="kanban-card-btns"><span>' + p.fid85 + '</span></div>' : '') +
           '</div>';
