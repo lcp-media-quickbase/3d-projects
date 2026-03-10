@@ -245,7 +245,7 @@ async function ppLoadData() {
   var rows = await qbQueryAll(
     TABLES.projects,
     [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.number,
-     FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod, FIELD.PROJECTS.deal,
+     FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod, FIELD.PROJECTS.deal, FIELD.PROJECTS.opportunity,
      FIELD.PROJECTS.fid36, FIELD.PROJECTS.fid49, FIELD.PROJECTS.fid54, FIELD.PROJECTS.fid55,
      FIELD.PROJECTS.fid62, FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid137],
     '{' + FIELD.PROJECTS.stage + '.EX.\'Pre-Production\'}'
@@ -260,6 +260,7 @@ async function ppLoadData() {
       stage:  val(r, FIELD.PROJECTS.stage),
       pod:    val(r, FIELD.PROJECTS.pod),
       deal:   val(r, FIELD.PROJECTS.deal),
+      opportunity: val(r, FIELD.PROJECTS.opportunity),
       fid54:  val(r, FIELD.PROJECTS.fid54),
       fid62:  val(r, FIELD.PROJECTS.fid62),
       fid55:  (function(v) {
@@ -891,7 +892,7 @@ function ppAssetTypeColor(type) {
 
 window.ppOpenContract = function(projId) {
   var proj = getProj(projId);
-  if (!proj || !proj.deal) { showToast('No contract reference found.', 'error'); return; }
+  if (!proj || !proj.opportunity) { showToast('No contract reference found.', 'error'); return; }
   var drawer  = document.getElementById('ppContractDrawer');
   var loading = document.getElementById('ppContractLoading');
   var frame   = document.getElementById('ppContractFrame');
@@ -905,7 +906,7 @@ window.ppOpenContract = function(projId) {
 
   // QB iframe.html embed URL (same pattern as formula URL field buttons)
   var fileUrl = 'https://' + QB_REALM + '/db/btprgw56v?a=dbpage&pagename=iframe.html' +
-    '&rid=' + proj.deal +
+    '&rid=' + proj.opportunity +
     '&tabledbid=' + TABLES.contracts +
     '&myurlroot=https://' + QB_REALM + '/' +
     '&fileattachmentfid=' + FIELD.CONTRACTS.pdf;
