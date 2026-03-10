@@ -93,9 +93,13 @@ var PP_SUBTABS = [
   { key: 'tar',      label: 'Technical Asset Review' },
   { key: 'ready',    label: 'Ready for Production' },
   { key: 'inprod',   label: 'In Production' },
-  { key: 'complete', label: 'Complete' },
-  { key: 'bookings', label: 'Bookings' }
+  { key: 'complete', label: 'Complete' }
 ];
+
+// RFP (Ready for Production) report state
+var ppRfpData   = [];
+var ppRfpLoaded = false;
+var ppRfpPods   = [];
 
 var ppCSS = `
   .pp-subtabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; flex-shrink:0; overflow-x:auto; }
@@ -244,6 +248,11 @@ function buildHTML() {
         '<div id="ppTarContent" class="pp-tar-groups pp-loading">Loading\u2026</div>' +
         '</div>';
     }
+    if (s.key === 'ready') {
+      return '<div class="pp-subtab-pane" id="ppPane-ready">' +
+        '<div id="ppRfpContent" class="pp-loading">Loading\u2026</div>' +
+        '</div>';
+    }
     return '<div class="pp-subtab-pane" id="ppPane-' + s.key + '">' +
       '<div class="pp-placeholder">' +
         '<div style="color:var(--text-dim)">' + ICONS.preproduction + '</div>' +
@@ -270,7 +279,8 @@ function switchSub(sub) {
   document.querySelectorAll('.pp-subtab-pane').forEach(function(p) {
     p.classList.toggle('active', p.id === 'ppPane-' + sub);
   });
-  if (sub === 'tar' && !ppTarLoaded) ppLoadTar();
+  if (sub === 'tar'   && !ppTarLoaded)  ppLoadTar();
+  if (sub === 'ready' && !ppRfpLoaded)  ppLoadRfp();
 }
 
 // ─── DATA ──────────────────────────────────────────────────────
@@ -948,6 +958,111 @@ function ppRenderTar() {
       '</div>' +
     '</div>';
   }).join('');
+}
+
+// ─── READY FOR PRODUCTION REPORT ───────────────────────────────
+async function ppLoadRfp() {
+  var el = document.getElementById('ppRfpContent');
+  if (el) { el.className = 'pp-loading'; el.innerHTML = 'Loading\u2026'; }
+  try {
+    var fids = [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.stage,
+                FIELD.PROJECTS.folder, FIELD.PROJECTS.pod, FIELD.PROJECTS.fid116, FIELD.PROJECTS.fid118,
+                FIELD.PROJECTS.techAssets, FIELD.PROJECTS.rfpDate, FIELD.PROJECTS.sendToProd];
+    var where = '{' + FIELD.PROJECTS.stage + '.XEX.\'Complete\'}AND{' + FIELD.PROJECTS.stage + '.XEX.\'Delivered\'}AND{' + FIELD.PROJECTS.stage + '.XEX.\'In Production\'}';
+    var results = await Promise.all([qbQueryAll(TABLES.projects, fids, where), getCachedPods()]);
+    var rows = results[0];
+    ppRfpPods = results[1];
+    ppRfpData = rows.map(function(r) {
+      var folder = val(r, FIELD.PROJECTS.folder);
+      var rfpRaw = val(r, FIELD.PROJECTS.rfpDate) || '';
+      // Format ISO date → MM/DD/YY
+      var rfpDisplay = rfpRaw;
+      if (rfpRaw) {
+        var parts = rfpRaw.split('-');
+        if (parts.length === 3) rfpDisplay = parts[1] + '/' + parts[2] + '/' + parts[0].slice(2);
+      }
+      return {
+        id:          val(r, FIELD.PROJECTS.id),
+        name:        val(r, FIELD.PROJECTS.name),
+        stage:       val(r, FIELD.PROJECTS.stage),
+        folder:      folder,
+        pod:         val(r, FIELD.PROJECTS.pod),
+        fid116:      val(r, FIELD.PROJECTS.fid116),
+        fid118:      val(r, FIELD.PROJECTS.fid118),
+        techAssets:  val(r, FIELD.PROJECTS.techAssets),
+        rfpDate:     rfpRaw,
+        rfpDisplay:  rfpDisplay,
+        sendToProd:  (r[FIELD.PROJECTS.sendToProd] && r[FIELD.PROJECTS.sendToProd].value) || ''
+      };
+    }).filter(function(r) {
+      // Client-side: (116 == 118 && 116 != 0) OR stage == 'Ready for Production'
+      var n116 = parseFloat(r.fid116), n118 = parseFloat(r.fid118);
+      return (n116 === n118 && n116 !== 0 && !isNaN(n116)) || r.stage === 'Ready for Production';
+    }).sort(function(a, b) {
+      // Low to high by rfpDate
+      return (a.rfpDate || '').localeCompare(b.rfpDate || '');
+    });
+    ppRfpLoaded = true;
+    ppRenderRfp();
+  } catch(err) {
+    var el2 = document.getElementById('ppRfpContent');
+    if (el2) { el2.className = 'pp-loading'; el2.innerHTML = 'Error loading data.'; }
+    console.error('[RFP]', err);
+  }
+}
+
+function ppRenderRfp() {
+  var el = document.getElementById('ppRfpContent');
+  if (!el) return;
+
+  if (ppRfpData.length === 0) {
+    el.className = 'pp-loading';
+    el.innerHTML = 'No projects match Ready for Production criteria.';
+    return;
+  }
+
+  var podOpts = '<option value="">— POD —</option>' +
+    ppRfpPods.map(function(p) { return '<option value="' + escapeHtml(p.name) + '">' + escapeHtml(p.name) + '</option>'; }).join('');
+
+  var tbody = ppRfpData.map(function(r) {
+    var stageColor = STAGE_COLORS[r.stage] || '#868e96';
+    var stageBadge = '<span class="pp-badge" style="background:' + stageColor + '22;color:' + stageColor + ';white-space:nowrap">' + escapeHtml(r.stage || '') + '</span>';
+    var folderCell = r.folder
+      ? '<a class="pp-cell-link" href="' + escapeHtml(r.folder) + '" target="_blank" rel="noopener">Open Folder</a>'
+      : '<span style="color:var(--text-dim)">—</span>';
+    var podSel = '<select class="pp-modal-select" style="min-width:110px" onchange="ppSaveField(' + r.id + ',' + FIELD.PROJECTS.pod + ',this.value,\'pod\')">' +
+      podOpts.replace('value="' + escapeHtml(r.pod || '') + '"', 'value="' + escapeHtml(r.pod || '') + '" selected') + '</select>';
+    return '<tr>' +
+      '<td class="pp-scope-td">' + escapeHtml(r.name || '') + '</td>' +
+      '<td class="pp-scope-td">' + stageBadge + '</td>' +
+      '<td class="pp-scope-td">' + folderCell + '</td>' +
+      '<td class="pp-scope-td">' + podSel + '</td>' +
+      '<td class="pp-scope-td" style="text-align:center">' + escapeHtml(String(r.techAssets || '')) + '</td>' +
+      '<td class="pp-scope-td">' + escapeHtml(r.rfpDisplay || '—') + '</td>' +
+      '<td class="pp-scope-td">' + (r.sendToProd || '') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  el.className = '';
+  el.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden';
+  el.innerHTML =
+    '<div style="padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+      '<span class="pp-scope-count">' + ppRfpData.length + ' project' + (ppRfpData.length !== 1 ? 's' : '') + '</span>' +
+    '</div>' +
+    '<div class="pp-scope-table-wrap">' +
+      '<table class="pp-scope-table">' +
+        '<thead><tr>' +
+          '<th class="pp-scope-th">Project Name</th>' +
+          '<th class="pp-scope-th">Stage</th>' +
+          '<th class="pp-scope-th">Project Folder</th>' +
+          '<th class="pp-scope-th">POD</th>' +
+          '<th class="pp-scope-th" style="text-align:center">Tech Assets</th>' +
+          '<th class="pp-scope-th">Ready for Production</th>' +
+          '<th class="pp-scope-th">Send to Production</th>' +
+        '</tr></thead>' +
+        '<tbody>' + tbody + '</tbody>' +
+      '</table>' +
+    '</div>';
 }
 
 async function ppFlushAssetsChanges() {
