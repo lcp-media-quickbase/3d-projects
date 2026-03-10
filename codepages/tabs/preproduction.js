@@ -1165,9 +1165,11 @@ function ppRenderInProd() {
   });
   var podNames = Object.keys(groups).sort();
 
-  // Avg age
-  var totalAge = ppInProdData.reduce(function(s, r) { return s + r.age; }, 0);
-  var avgAge = ppInProdData.length > 0 ? (totalAge / ppInProdData.length).toFixed(1) : '\u2014';
+  // Avg age — only include projects with a non-zero age value
+  var ageRows = ppInProdData.filter(function(r) { return r.age > 0; });
+  var avgAge = ageRows.length > 0
+    ? (ageRows.reduce(function(s, r) { return s + r.age; }, 0) / ageRows.length).toFixed(1)
+    : '\u2014';
 
   // Pie chart slices
   var slices = podNames.map(function(pod, i) {
@@ -1250,14 +1252,14 @@ function ppRenderInProd() {
         '<span class="pp-kpi-sub">projects</span>' +
       '</div>' +
       '<div class="pp-kpi-card">' +
-        '<span class="pp-kpi-label">Projects by Pod</span>' +
-        '<div style="margin-top:10px">' + ppInProdPieChart(slices) + '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px">' + legendHtml + '</div>' +
-      '</div>' +
-      '<div class="pp-kpi-card">' +
         '<span class="pp-kpi-label">Avg Project Age</span>' +
         '<span class="pp-kpi-value">' + avgAge + '</span>' +
         '<span class="pp-kpi-sub">days</span>' +
+      '</div>' +
+      '<div class="pp-kpi-card">' +
+        '<span class="pp-kpi-label">Projects by Pod</span>' +
+        '<div style="margin-top:10px">' + ppInProdPieChart(slices) + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px">' + legendHtml + '</div>' +
       '</div>' +
     '</div>';
 }
