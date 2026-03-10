@@ -105,6 +105,11 @@ var ppCSS = `
   .pp-modal-rte:focus { border-color:var(--accent); }
   .pp-modal-rte ul, .pp-modal-rte ol { padding-left:20px; margin:4px 0; }
   .pp-modal-rte-save { margin-left:auto; }
+  .pp-notes-header { display:flex; align-items:center; justify-content:space-between; }
+  .pp-notes-view { flex:1; min-height:100px; overflow-y:auto; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); font-size:13px; color:var(--text); line-height:1.6; }
+  .pp-notes-view ul, .pp-notes-view ol { padding-left:20px; margin:4px 0; }
+  .pp-notes-empty { color:var(--text-dim); font-style:italic; }
+  .pp-notes-edit-wrap { display:flex; flex-direction:column; gap:6px; flex:1; min-height:0; }
   .pp-modal-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; flex-shrink:0; }
   .pp-modal-tab-btn { padding:9px 14px; font-size:12px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:none; font-family:inherit; border-bottom:2px solid transparent; transition:all 0.15s; white-space:nowrap; }
   .pp-modal-tab-btn:hover { color:var(--text); }
@@ -492,19 +497,26 @@ window.ppOpenModal = function(id) {
             '<option value="">Loading\u2026</option>' +
           '</select></div>' +
       '</div>' +
-      '<div class="pp-modal-info-col" style="flex:2">' +
-        '<span class="pp-modal-info-label">Notes</span>' +
-        '<div class="pp-modal-rte-toolbar">' +
-          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'bold\')"              title="Bold"><b>B</b></button>' +
-          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'italic\')"            title="Italic"><i>I</i></button>' +
-          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'underline\')"         title="Underline"><u>U</u></button>' +
-          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'strikeThrough\')"     title="Strikethrough"><s>S</s></button>' +
-          '<span class="pp-modal-rte-sep"></span>' +
-          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertUnorderedList\')" title="Bullet list" style="font-size:14px">•</button>' +
-          '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertOrderedList\')"   title="Numbered list" style="font-size:10px;width:32px">1.</button>' +
-          '<button class="btn btn-sm pp-modal-rte-save" onclick="ppSaveNotes(' + id + ')">Save Notes</button>' +
+      '<div class="pp-modal-info-col" style="flex:2;min-height:0">' +
+        '<div class="pp-notes-header">' +
+          '<span class="pp-modal-info-label">Notes</span>' +
+          '<button class="btn btn-sm" id="ppNotesEditBtn" onclick="ppNotesEdit(' + id + ')">Edit</button>' +
         '</div>' +
-        '<div class="pp-modal-rte" id="ppNotesEditor" contenteditable="true"></div>' +
+        '<div id="ppNotesView" class="pp-notes-view"></div>' +
+        '<div id="ppNotesEditWrap" class="pp-notes-edit-wrap" style="display:none">' +
+          '<div class="pp-modal-rte-toolbar">' +
+            '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'bold\')"              title="Bold"><b>B</b></button>' +
+            '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'italic\')"            title="Italic"><i>I</i></button>' +
+            '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'underline\')"         title="Underline"><u>U</u></button>' +
+            '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'strikeThrough\')"     title="Strikethrough"><s>S</s></button>' +
+            '<span class="pp-modal-rte-sep"></span>' +
+            '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertUnorderedList\')" title="Bullet list" style="font-size:14px">•</button>' +
+            '<button class="pp-modal-rte-btn" onmousedown="event.preventDefault();ppRteCmd(\'insertOrderedList\')"   title="Numbered list" style="font-size:10px;width:32px">1.</button>' +
+            '<button class="btn btn-sm" style="margin-left:auto" onclick="ppNotesCancel()">Cancel</button>' +
+            '<button class="btn btn-sm" onclick="ppNotesSave(' + id + ')">Save</button>' +
+          '</div>' +
+          '<div class="pp-modal-rte" id="ppNotesEditor" contenteditable="true"></div>' +
+        '</div>' +
       '</div>' +
     '</div>' +
     '<div class="pp-modal-tabs">' +
@@ -518,9 +530,11 @@ window.ppOpenModal = function(id) {
       '<div class="pp-modal-report-placeholder">Technical Assets report coming soon</div>' +
     '</div>';
 
-  // Set existing notes HTML into contenteditable
-  var notesEl = overlay.querySelector('#ppNotesEditor');
-  if (notesEl) notesEl.innerHTML = notesHtml;
+  // Populate notes view (read-only by default)
+  var notesView = overlay.querySelector('#ppNotesView');
+  if (notesView) {
+    notesView.innerHTML = notesHtml || '<span class="pp-notes-empty">No notes yet. Click Edit to add notes.</span>';
+  }
 
   // Populate POD dropdown async from cache
   getCachedPods().then(function(pods) {
@@ -573,10 +587,40 @@ window.ppRteCmd = function(cmd) {
   if (el) el.focus();
 };
 
-window.ppSaveNotes = function(projId) {
-  var el = document.getElementById('ppNotesEditor');
-  if (!el) return;
-  ppSaveField(projId, FIELD.PROJECTS.fid36, el.innerHTML, 'fid36');
+window.ppNotesEdit = function(projId) {
+  var view   = document.getElementById('ppNotesView');
+  var wrap   = document.getElementById('ppNotesEditWrap');
+  var btn    = document.getElementById('ppNotesEditBtn');
+  var editor = document.getElementById('ppNotesEditor');
+  if (!view || !wrap || !editor) return;
+  var proj = getProj(projId);
+  editor.innerHTML = (proj && proj.fid36) || '';
+  view.style.display = 'none';
+  wrap.style.display = 'flex';
+  if (btn) btn.style.display = 'none';
+  editor.focus();
+};
+
+window.ppNotesCancel = function() {
+  var view = document.getElementById('ppNotesView');
+  var wrap = document.getElementById('ppNotesEditWrap');
+  var btn  = document.getElementById('ppNotesEditBtn');
+  if (!view || !wrap) return;
+  view.style.display = '';
+  wrap.style.display = 'none';
+  if (btn) btn.style.display = '';
+};
+
+window.ppNotesSave = function(projId) {
+  var editor = document.getElementById('ppNotesEditor');
+  var view   = document.getElementById('ppNotesView');
+  if (!editor) return;
+  var html = editor.innerHTML;
+  if (view) {
+    view.innerHTML = html || '<span class="pp-notes-empty">No notes yet. Click Edit to add notes.</span>';
+  }
+  ppSaveField(projId, FIELD.PROJECTS.fid36, html, 'fid36');
+  ppNotesCancel();
 };
 
 // ─── GLOBALS ───────────────────────────────────────────────────
