@@ -101,6 +101,11 @@ var ppRfpData   = [];
 var ppRfpLoaded = false;
 var ppRfpPods   = [];
 
+// In Production report state
+var ppInProdData         = [];
+var ppInProdLoaded       = false;
+var ppInProdPreProdCount = 0;
+
 var ppCSS = `
   .pp-subtabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; flex-shrink:0; overflow-x:auto; }
   .pp-subtab-btn { padding:10px 16px; font-size:13px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:none; font-family:inherit; border-bottom:2px solid transparent; transition:all 0.15s; white-space:nowrap; }
@@ -225,6 +230,13 @@ var ppCSS = `
   .pp-tar-group-count { font-size:11px; color:var(--text-muted); }
   .pp-tar-group-body { border-top:1px solid var(--border); overflow-x:auto; }
   .pp-tar-group-body .pp-scope-table { border:none; border-radius:0; }
+  .pp-inprod-layout { display:flex; flex:1; overflow:hidden; min-height:0; }
+  .pp-inprod-main { flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; border-right:1px solid var(--border); }
+  .pp-inprod-sidebar { width:260px; flex-shrink:0; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:12px; }
+  .pp-kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; flex-direction:column; gap:3px; }
+  .pp-kpi-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); margin-bottom:2px; }
+  .pp-kpi-value { font-size:30px; font-weight:700; color:var(--text); line-height:1.2; }
+  .pp-kpi-sub { font-size:11px; color:var(--text-muted); }
 `;
 
 // ─── HTML ──────────────────────────────────────────────────────
@@ -253,6 +265,11 @@ function buildHTML() {
         '<div id="ppRfpContent" class="pp-loading">Loading\u2026</div>' +
         '</div>';
     }
+    if (s.key === 'inprod') {
+      return '<div class="pp-subtab-pane" id="ppPane-inprod">' +
+        '<div id="ppInProdLayout" class="pp-loading">Loading\u2026</div>' +
+        '</div>';
+    }
     return '<div class="pp-subtab-pane" id="ppPane-' + s.key + '">' +
       '<div class="pp-placeholder">' +
         '<div style="color:var(--text-dim)">' + ICONS.preproduction + '</div>' +
@@ -279,8 +296,9 @@ function switchSub(sub) {
   document.querySelectorAll('.pp-subtab-pane').forEach(function(p) {
     p.classList.toggle('active', p.id === 'ppPane-' + sub);
   });
-  if (sub === 'tar'   && !ppTarLoaded)  ppLoadTar();
-  if (sub === 'ready' && !ppRfpLoaded)  ppLoadRfp();
+  if (sub === 'tar'    && !ppTarLoaded)    ppLoadTar();
+  if (sub === 'ready'  && !ppRfpLoaded)   ppLoadRfp();
+  if (sub === 'inprod' && !ppInProdLoaded) ppLoadInProd();
 }
 
 // ─── DATA ──────────────────────────────────────────────────────
@@ -1065,6 +1083,185 @@ function ppRenderRfp() {
     '</div>';
 }
 
+// ─── IN PRODUCTION REPORT ──────────────────────────────────────
+async function ppLoadInProd() {
+  var el = document.getElementById('ppInProdLayout');
+  if (el) { el.className = 'pp-loading'; el.innerHTML = 'Loading\u2026'; }
+  try {
+    var fids = [
+      FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.fid54, FIELD.PROJECTS.type,
+      FIELD.PROJECTS.folder, FIELD.PROJECTS.teamChannel, FIELD.PROJECTS.reviewStudio,
+      FIELD.PROJECTS.earliestBooking, FIELD.PROJECTS.latestBooking, FIELD.PROJECTS.pod, FIELD.PROJECTS.age
+    ];
+    var results = await Promise.all([
+      qbQueryAll(TABLES.projects, fids, '{' + FIELD.PROJECTS.stage + '.EX.\'In Production\'}'),
+      qbQueryAll(TABLES.projects, [FIELD.PROJECTS.id], '{' + FIELD.PROJECTS.stage + '.EX.\'Pre-Production\'}')
+    ]);
+    ppInProdPreProdCount = results[1].length;
+    ppInProdData = results[0].map(function(r) {
+      return {
+        id:              val(r, FIELD.PROJECTS.id),
+        name:            val(r, FIELD.PROJECTS.name),
+        clientName:      val(r, FIELD.PROJECTS.fid54),
+        type:            val(r, FIELD.PROJECTS.type),
+        folder:          val(r, FIELD.PROJECTS.folder),
+        teamChannel:     val(r, FIELD.PROJECTS.teamChannel),
+        reviewStudio:    val(r, FIELD.PROJECTS.reviewStudio),
+        earliestBooking: val(r, FIELD.PROJECTS.earliestBooking),
+        latestBooking:   val(r, FIELD.PROJECTS.latestBooking),
+        pod:             val(r, FIELD.PROJECTS.pod),
+        age:             parseFloat(val(r, FIELD.PROJECTS.age)) || 0
+      };
+    });
+    ppInProdLoaded = true;
+    ppRenderInProd();
+  } catch(err) {
+    var el2 = document.getElementById('ppInProdLayout');
+    if (el2) { el2.className = 'pp-loading'; el2.innerHTML = 'Error loading data.'; }
+    console.error('[InProd]', err);
+  }
+}
+
+function ppInProdPieChart(slices) {
+  var total = slices.reduce(function(s, p) { return s + p.count; }, 0);
+  if (total === 0) return '<div style="color:var(--text-dim);font-size:12px;text-align:center">No data</div>';
+  var cx = 70, cy = 70, r = 56, ir = 34;
+  var angle = -Math.PI / 2;
+  var paths = slices.map(function(p) {
+    var sweep = (p.count / total) * Math.PI * 2;
+    var end = angle + sweep;
+    var la = sweep > Math.PI ? 1 : 0;
+    var x1 = cx + r  * Math.cos(angle), y1 = cy + r  * Math.sin(angle);
+    var x2 = cx + r  * Math.cos(end),   y2 = cy + r  * Math.sin(end);
+    var ix1 = cx + ir * Math.cos(angle), iy1 = cy + ir * Math.sin(angle);
+    var ix2 = cx + ir * Math.cos(end),   iy2 = cy + ir * Math.sin(end);
+    var d = 'M ' + ix1.toFixed(1) + ' ' + iy1.toFixed(1) +
+            ' L ' + x1.toFixed(1)  + ' ' + y1.toFixed(1)  +
+            ' A ' + r + ' ' + r + ' 0 ' + la + ' 1 ' + x2.toFixed(1) + ' ' + y2.toFixed(1) +
+            ' L ' + ix2.toFixed(1) + ' ' + iy2.toFixed(1) +
+            ' A ' + ir + ' ' + ir + ' 0 ' + la + ' 0 ' + ix1.toFixed(1) + ' ' + iy1.toFixed(1) + ' Z';
+    angle = end;
+    return '<path d="' + d + '" fill="' + p.color + '" />';
+  }).join('');
+  return '<svg width="140" height="140" viewBox="0 0 140 140" style="display:block;margin:0 auto">' + paths + '</svg>';
+}
+
+function ppInProdFmtDate(v) {
+  if (!v) return '\u2014';
+  var p = String(v).split('-');
+  return p.length === 3 ? p[1] + '/' + p[2] + '/' + p[0].slice(2) : v;
+}
+
+function ppRenderInProd() {
+  var el = document.getElementById('ppInProdLayout');
+  if (!el) return;
+
+  // Group by pod, sort pod names alphabetically
+  var groups = {};
+  ppInProdData.forEach(function(r) {
+    var pod = r.pod || 'Unassigned';
+    if (!groups[pod]) groups[pod] = [];
+    groups[pod].push(r);
+  });
+  var podNames = Object.keys(groups).sort();
+
+  // Avg age
+  var totalAge = ppInProdData.reduce(function(s, r) { return s + r.age; }, 0);
+  var avgAge = ppInProdData.length > 0 ? (totalAge / ppInProdData.length).toFixed(1) : '\u2014';
+
+  // Pie chart slices
+  var slices = podNames.map(function(pod, i) {
+    return { name: pod, count: groups[pod].length, color: POD_COLORS[pod] || PROJECT_COLORS[i % PROJECT_COLORS.length] };
+  });
+
+  var thead = '<tr>' +
+    '<th class="pp-scope-th">Project Name</th>' +
+    '<th class="pp-scope-th">Client</th>' +
+    '<th class="pp-scope-th">Type</th>' +
+    '<th class="pp-scope-th">Folder</th>' +
+    '<th class="pp-scope-th">Team Channel</th>' +
+    '<th class="pp-scope-th">Review Studio</th>' +
+    '<th class="pp-scope-th">Earliest Booking</th>' +
+    '<th class="pp-scope-th">Latest Booking</th>' +
+  '</tr>';
+
+  var groupsHtml = podNames.map(function(pod) {
+    var rows = groups[pod];
+    var tbody = rows.map(function(r) {
+      var typeColor = TYPE_COLORS[r.type] || '#868e96';
+      var typeBadge = r.type
+        ? '<span class="pp-type-badge" style="background:' + typeColor + '22;color:' + typeColor + ';border:1px solid ' + typeColor + '44">' + escapeHtml(r.type) + '</span>'
+        : '\u2014';
+      function linkCell(url, label) {
+        return url ? '<a class="pp-cell-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' + label + '</a>' : '\u2014';
+      }
+      return '<tr>' +
+        '<td class="pp-scope-td">' + escapeHtml(r.name || '') + '</td>' +
+        '<td class="pp-scope-td">' + escapeHtml(r.clientName || '\u2014') + '</td>' +
+        '<td class="pp-scope-td">' + typeBadge + '</td>' +
+        '<td class="pp-scope-td">' + linkCell(r.folder, 'Folder') + '</td>' +
+        '<td class="pp-scope-td">' + linkCell(r.teamChannel, 'Channel') + '</td>' +
+        '<td class="pp-scope-td">' + linkCell(r.reviewStudio, 'Project') + '</td>' +
+        '<td class="pp-scope-td">' + ppInProdFmtDate(r.earliestBooking) + '</td>' +
+        '<td class="pp-scope-td">' + ppInProdFmtDate(r.latestBooking) + '</td>' +
+      '</tr>';
+    }).join('');
+    return '<div class="pp-tar-group">' +
+      '<div class="pp-tar-group-header" onclick="ppInProdToggleGroup(this)">' +
+        '<span class="pp-tar-group-chevron">&#9654;</span>' +
+        '<span class="pp-tar-group-label" style="font-weight:700">' + escapeHtml(pod) + '</span>' +
+        '<span class="pp-tar-group-count">(' + rows.length + ')</span>' +
+      '</div>' +
+      '<div class="pp-tar-group-body" style="display:none">' +
+        '<table class="pp-scope-table"><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  var legendHtml = slices.map(function(p) {
+    return '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text)">' +
+      '<span style="width:10px;height:10px;border-radius:2px;background:' + p.color + ';flex-shrink:0"></span>' +
+      escapeHtml(p.name) + ' (' + p.count + ')' +
+    '</div>';
+  }).join('');
+
+  el.className = '';
+  el.style.cssText = 'display:flex;flex:1;overflow:hidden;min-height:0';
+  el.innerHTML =
+    '<div class="pp-inprod-main">' +
+      '<div class="pp-tar-toolbar">' +
+        '<span class="pp-scope-count">' + ppInProdData.length + ' project' + (ppInProdData.length !== 1 ? 's' : '') + '</span>' +
+        '<button class="btn btn-sm" style="margin-left:auto" onclick="ppInProdExpandAll()">Expand All</button>' +
+        '<button class="btn btn-sm" onclick="ppInProdCollapseAll()">Collapse All</button>' +
+      '</div>' +
+      '<div class="pp-tar-groups">' +
+        (groupsHtml || '<div class="pp-loading" style="min-height:80px">No In Production projects found.</div>') +
+      '</div>' +
+    '</div>' +
+    '<div class="pp-inprod-sidebar">' +
+      '<div class="pp-kpi-card">' +
+        '<span class="pp-kpi-label">Pre-Production</span>' +
+        '<span class="pp-kpi-value">' + ppInProdPreProdCount + '</span>' +
+        '<span class="pp-kpi-sub">projects</span>' +
+      '</div>' +
+      '<div class="pp-kpi-card">' +
+        '<span class="pp-kpi-label">In Production</span>' +
+        '<span class="pp-kpi-value">' + ppInProdData.length + '</span>' +
+        '<span class="pp-kpi-sub">projects</span>' +
+      '</div>' +
+      '<div class="pp-kpi-card">' +
+        '<span class="pp-kpi-label">Projects by Pod</span>' +
+        '<div style="margin-top:10px">' + ppInProdPieChart(slices) + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px">' + legendHtml + '</div>' +
+      '</div>' +
+      '<div class="pp-kpi-card">' +
+        '<span class="pp-kpi-label">Avg Project Age</span>' +
+        '<span class="pp-kpi-value">' + avgAge + '</span>' +
+        '<span class="pp-kpi-sub">days</span>' +
+      '</div>' +
+    '</div>';
+}
+
 async function ppFlushAssetsChanges() {
   var ids = Object.keys(ppAssetsChanges);
   if (ids.length === 0) return;
@@ -1474,6 +1671,28 @@ window.ppTarCheck = function(recordId, fid, checked) {
 };
 window.ppTarShowDialog = function(recordId, fid, key, label, type) {
   ppAssetShowDialog(recordId, fid, key, label, type, true);
+};
+
+window.ppInProdToggleGroup = function(header) {
+  header.classList.toggle('open');
+  var body = header.nextElementSibling;
+  if (body) body.style.display = header.classList.contains('open') ? 'block' : 'none';
+};
+window.ppInProdExpandAll = function() {
+  var el = document.getElementById('ppInProdLayout');
+  if (!el) return;
+  el.querySelectorAll('.pp-tar-group-header').forEach(function(h) {
+    h.classList.add('open');
+    var b = h.nextElementSibling; if (b) b.style.display = 'block';
+  });
+};
+window.ppInProdCollapseAll = function() {
+  var el = document.getElementById('ppInProdLayout');
+  if (!el) return;
+  el.querySelectorAll('.pp-tar-group-header').forEach(function(h) {
+    h.classList.remove('open');
+    var b = h.nextElementSibling; if (b) b.style.display = 'none';
+  });
 };
 
 // ─── REGISTER ─────────────────────────────────────────────────
