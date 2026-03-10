@@ -3,16 +3,19 @@
 // ═══════════════════════════════════════════════════════════════
 (function() {
 
-var ppProjects = [];
-var ppSubTab = 'kanban';
-var ppLoading = false;
+var ppProjects  = [];
+var ppSubTab    = 'kanban';
+var ppLoading   = false;
+var ppColOrder  = {};   // { colKey: [id, id, ...] } — manual ordering per column
+var ppDragId    = null; // project id being dragged
+var ppDragSrcCol = null; // source column key
 
 var KANBAN_COLS = [
-  { key: 'blank',       label: 'Blank',       match: function(t){ return !t || t === ''; } },
-  { key: 'urgent',      label: 'Urgent',      match: function(t){ return t === 'Urgent'; } },
-  { key: 'not-started', label: 'Not Started', match: function(t){ return t === 'Not Started'; } },
-  { key: 'in-progress', label: 'In Progress', match: function(t){ return t === 'In Progress'; } },
-  { key: 'cold',        label: 'Cold',        match: function(t){ return t === 'Cold'; } }
+  { key: 'blank',        label: 'Blank',        typeValue: '',             match: function(t){ return !t || t === ''; } },
+  { key: 'urgent',       label: 'Urgent',        typeValue: 'Urgent',       match: function(t){ return t === 'Urgent'; } },
+  { key: 'not-started',  label: 'Not Started',   typeValue: 'Not Started',  match: function(t){ return t === 'Not Started'; } },
+  { key: 'in-progress',  label: 'In Progress',   typeValue: 'In Progress',  match: function(t){ return t === 'In Progress'; } },
+  { key: 'cold',         label: 'Cold',          typeValue: 'Cold',         match: function(t){ return t === 'Cold'; } }
 ];
 
 var COL_COLORS = {
@@ -23,56 +26,87 @@ var COL_COLORS = {
   'cold':        '#868e96'
 };
 
+var PP_SUBTABS = [
+  { key: 'kanban',   label: 'Pre-Production' },
+  { key: 'tar',      label: 'Technical Asset Review' },
+  { key: 'ready',    label: 'Ready for Production' },
+  { key: 'inprod',   label: 'In Production' },
+  { key: 'complete', label: 'Complete' },
+  { key: 'bookings', label: 'Bookings' }
+];
+
 var ppCSS = `
-  .pp-subtabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; flex-shrink:0; }
-  .pp-subtab-btn { padding:10px 16px; font-size:13px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:none; font-family:inherit; border-bottom:2px solid transparent; transition:all 0.15s; }
+  .pp-subtabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; flex-shrink:0; overflow-x:auto; }
+  .pp-subtab-btn { padding:10px 16px; font-size:13px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:none; font-family:inherit; border-bottom:2px solid transparent; transition:all 0.15s; white-space:nowrap; }
   .pp-subtab-btn:hover { color:var(--text); }
   .pp-subtab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
-  .pp-subtab-pane { display:none; flex:1; overflow:hidden; }
-  .pp-subtab-pane.active { display:flex; flex-direction:column; }
-  .kanban-board { display:flex; gap:12px; padding:16px; overflow-x:auto; flex:1; align-items:flex-start; }
-  .kanban-col { flex:0 0 260px; background:var(--surface); border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; max-height:100%; }
+  .pp-subtab-pane { display:none; flex:1; overflow:hidden; min-height:0; }
+  .pp-subtab-pane.active { display:flex; flex-direction:column; min-height:0; }
+  .kanban-board { display:flex; gap:12px; padding:16px; overflow-x:auto; overflow-y:hidden; flex:1; align-items:flex-start; min-height:0; }
+  .kanban-col { flex:0 0 280px; background:var(--surface); border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; max-height:100%; transition:border-color 0.15s, background 0.15s; }
+  .kanban-col.drag-over { border-color:var(--accent); background:rgba(104,182,229,0.06); }
   .kanban-col-header { padding:12px 14px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
   .kanban-col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
-  .kanban-col-count { font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:var(--surface-raised,var(--border)); color:var(--text-muted); }
-  .kanban-cards { padding:8px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; }
-  .kanban-card { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:default; transition:border-color 0.15s; }
-  .kanban-card:hover { border-color:var(--accent); }
-  .kanban-card-name { font-size:13px; font-weight:700; color:var(--text); margin-bottom:4px; line-height:1.3; }
-  .kanban-card-sub { font-size:12px; color:var(--text-muted); line-height:1.4; }
-  .kanban-empty { padding:20px 14px; text-align:center; font-size:12px; color:var(--text-dim); }
+  .kanban-col-count { font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:var(--border); color:var(--text-muted); }
+  .kanban-cards { padding:8px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex:1; min-height:48px; }
+  .kanban-card { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:grab; user-select:none; transition:border-color 0.15s, box-shadow 0.15s, opacity 0.15s; }
+  .kanban-card:hover { border-color:var(--accent); box-shadow:0 2px 8px rgba(0,0,0,0.18); }
+  .kanban-card:active { cursor:grabbing; }
+  .kanban-card.dragging { opacity:0.35; }
+  .kanban-card.drop-before { border-top:2px solid var(--accent); }
+  .kanban-card.drop-after  { border-bottom:2px solid var(--accent); }
+  .kanban-card-name { font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; line-height:1.3; }
+  .kanban-card-btns { display:flex; gap:6px; flex-wrap:wrap; }
+  .kanban-card-btns a, .kanban-card-btns button { font-size:11px !important; padding:3px 10px !important; border-radius:4px !important; line-height:1.5 !important; }
+  .kanban-empty { padding:24px 14px; text-align:center; font-size:12px; color:var(--text-dim); }
   .pp-loading { display:flex; align-items:center; justify-content:center; flex:1; color:var(--text-dim); font-size:14px; }
+  .pp-placeholder { display:flex; align-items:center; justify-content:center; flex:1; flex-direction:column; gap:12px; color:var(--text-dim); }
 `;
 
+// ─── HTML ──────────────────────────────────────────────────────
 function buildHTML() {
-  return `
-    <div class="sched-topbar" style="border-bottom:none;flex-shrink:0">
-      <div class="sched-topbar-left"></div>
-      <div class="sched-topbar-right">
-        <button class="btn btn-sm" onclick="ppRefresh()" title="Refresh">↻ Refresh</button>
-      </div>
-    </div>
-    <div class="pp-subtabs">
-      <button class="pp-subtab-btn active" data-pp="kanban" onclick="ppSwitchSub('kanban')">Kanban</button>
-    </div>
-    <div class="pp-subtab-pane active" id="ppPane-kanban">
-      <div id="ppKanbanContent" class="pp-loading">Loading…</div>
-    </div>
-    <div class="modal-overlay" id="ppModal" onclick="if(event.target===this)ppCloseModal()">
-      <div class="modal-content" id="ppModalContent"></div>
-    </div>`;
+  var tabs = PP_SUBTABS.map(function(s, i) {
+    return '<button class="pp-subtab-btn' + (i === 0 ? ' active' : '') +
+      '" data-pp="' + s.key + '" onclick="ppSwitchSub(\'' + s.key + '\')">' +
+      escapeHtml(s.label) + '</button>';
+  }).join('');
+
+  var panes = PP_SUBTABS.map(function(s, i) {
+    var active = i === 0 ? ' active' : '';
+    if (s.key === 'kanban') {
+      return '<div class="pp-subtab-pane' + active + '" id="ppPane-kanban">' +
+        '<div id="ppKanbanContent" class="pp-loading">Loading\u2026</div>' +
+        '</div>';
+    }
+    return '<div class="pp-subtab-pane" id="ppPane-' + s.key + '">' +
+      '<div class="pp-placeholder">' +
+        '<div style="color:var(--text-dim)">' + ICONS.preproduction + '</div>' +
+        '<div style="font-size:14px">' + escapeHtml(s.label) + ' coming soon.</div>' +
+      '</div></div>';
+  }).join('');
+
+  return '<div class="sched-topbar" style="border-bottom:none;flex-shrink:0">' +
+      '<div class="sched-topbar-left"></div>' +
+      '<div class="sched-topbar-right">' +
+        '<button class="btn btn-sm" onclick="ppRefresh()">&#8635; Refresh</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="pp-subtabs">' + tabs + '</div>' +
+    panes;
 }
 
-function ppSwitchSub(sub) {
+// ─── SUB-TAB SWITCH ────────────────────────────────────────────
+function switchSub(sub) {
   ppSubTab = sub;
-  document.querySelectorAll('.pp-subtab-btn').forEach(function(b){
+  document.querySelectorAll('.pp-subtab-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.pp === sub);
   });
-  document.querySelectorAll('.pp-subtab-pane').forEach(function(p){
+  document.querySelectorAll('.pp-subtab-pane').forEach(function(p) {
     p.classList.toggle('active', p.id === 'ppPane-' + sub);
   });
 }
 
+// ─── DATA ──────────────────────────────────────────────────────
 async function ppLoadData() {
   var rows = await qbQueryAll(
     TABLES.projects,
@@ -81,6 +115,7 @@ async function ppLoadData() {
      FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid141],
     '{' + FIELD.PROJECTS.stage + '.XEX.\'Complete\'}'
   );
+
   ppProjects = rows.map(function(r) {
     return {
       id:     val(r, FIELD.PROJECTS.id),
@@ -89,71 +124,245 @@ async function ppLoadData() {
       type:   val(r, FIELD.PROJECTS.type),
       stage:  val(r, FIELD.PROJECTS.stage),
       pod:    val(r, FIELD.PROJECTS.pod),
-      fid85:  val(r, FIELD.PROJECTS.fid85),
-      fid141: val(r, FIELD.PROJECTS.fid141)
+      // Raw HTML from formula rich-text fields — rendered directly as buttons
+      fid85:  (r[FIELD.PROJECTS.fid85]  && r[FIELD.PROJECTS.fid85].value)  || '',
+      fid141: (r[FIELD.PROJECTS.fid141] && r[FIELD.PROJECTS.fid141].value) || ''
     };
+  });
+
+  // Build per-column order arrays (preserves order on reload)
+  ppColOrder = {};
+  KANBAN_COLS.forEach(function(col) {
+    ppColOrder[col.key] = ppProjects
+      .filter(function(p) { return col.match(p.type); })
+      .map(function(p) { return p.id; });
   });
 }
 
+function getProj(id) {
+  return ppProjects.find(function(p) { return p.id === id; });
+}
+
+// ─── RENDER ────────────────────────────────────────────────────
 function renderKanban() {
   var container = document.getElementById('ppKanbanContent');
   if (!container) return;
 
-  var board = '<div class="kanban-board">';
+  var html = '<div class="kanban-board">';
+
   KANBAN_COLS.forEach(function(col) {
-    var cards = ppProjects.filter(function(p){ return col.match(p.type); });
+    var ids   = ppColOrder[col.key] || [];
     var color = COL_COLORS[col.key];
-    board += '<div class="kanban-col">' +
+
+    html += '<div class="kanban-col" id="ppCol-' + col.key + '"' +
+      ' ondragover="ppColDragOver(event,\'' + col.key + '\')"' +
+      ' ondragleave="ppColDragLeave(event,\'' + col.key + '\')"' +
+      ' ondrop="ppColDrop(event,\'' + col.key + '\')">' +
       '<div class="kanban-col-header">' +
         '<span class="kanban-col-title" style="color:' + color + '">' + escapeHtml(col.label) + '</span>' +
-        '<span class="kanban-col-count">' + cards.length + '</span>' +
+        '<span class="kanban-col-count">' + ids.length + '</span>' +
       '</div>' +
       '<div class="kanban-cards">';
 
-    if (cards.length === 0) {
-      board += '<div class="kanban-empty">No projects</div>';
+    if (ids.length === 0) {
+      html += '<div class="kanban-empty">No projects</div>';
     } else {
-      cards.forEach(function(p) {
-        var sub1 = escapeHtml(p.fid85);
-        var sub2 = escapeHtml(p.fid141);
-        var subLine = [sub1, sub2].filter(Boolean).join(' · ');
-        board += '<div class="kanban-card">' +
-          '<div class="kanban-card-name">' + escapeHtml(p.name || '—') + '</div>' +
-          (subLine ? '<div class="kanban-card-sub">' + subLine + '</div>' : '') +
-        '</div>';
+      ids.forEach(function(id) {
+        var p = getProj(id);
+        if (!p) return;
+        var btns = '';
+        if (p.fid85)  btns += '<span>' + p.fid85  + '</span>';
+        if (p.fid141) btns += '<span>' + p.fid141 + '</span>';
+
+        html += '<div class="kanban-card" id="ppCard-' + p.id + '"' +
+          ' draggable="true"' +
+          ' ondragstart="ppCardDragStart(event,' + p.id + ',\'' + col.key + '\')"' +
+          ' ondragend="ppCardDragEnd()"' +
+          ' ondragover="ppCardDragOver(event,' + p.id + ',\'' + col.key + '\')"' +
+          ' ondragleave="ppCardDragLeave(event,' + p.id + ')"' +
+          ' ondrop="ppCardDrop(event,' + p.id + ',\'' + col.key + '\')">' +
+          '<div class="kanban-card-name">' + escapeHtml(p.name || '\u2014') + '</div>' +
+          (btns ? '<div class="kanban-card-btns">' + btns + '</div>' : '') +
+          '</div>';
       });
     }
 
-    board += '</div></div>';
+    html += '</div></div>';
   });
-  board += '</div>';
 
+  html += '</div>';
   container.className = '';
-  container.innerHTML = board;
+  container.innerHTML = html;
 }
 
+// ─── DRAG & DROP ───────────────────────────────────────────────
+window.ppCardDragStart = function(e, id, colKey) {
+  ppDragId     = id;
+  ppDragSrcCol = colKey;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(id));
+  setTimeout(function() {
+    var el = document.getElementById('ppCard-' + id);
+    if (el) el.classList.add('dragging');
+  }, 0);
+};
+
+window.ppCardDragEnd = function() {
+  document.querySelectorAll('.kanban-card.dragging').forEach(function(el) { el.classList.remove('dragging'); });
+  document.querySelectorAll('.kanban-card.drop-before, .kanban-card.drop-after').forEach(function(el) {
+    el.classList.remove('drop-before', 'drop-after');
+  });
+  document.querySelectorAll('.kanban-col.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+  ppDragId = null;
+  ppDragSrcCol = null;
+};
+
+// Card drag-over: show insertion indicator, suppress column highlight for same-col
+window.ppCardDragOver = function(e, targetId, colKey) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!ppDragId || ppDragId === targetId) return;
+
+  // Show column highlight when dragging from another column
+  if (ppDragSrcCol !== colKey) {
+    var col = document.getElementById('ppCol-' + colKey);
+    if (col) col.classList.add('drag-over');
+  }
+
+  // Show insertion line on target card
+  document.querySelectorAll('.kanban-card.drop-before, .kanban-card.drop-after').forEach(function(el) {
+    el.classList.remove('drop-before', 'drop-after');
+  });
+  var card = document.getElementById('ppCard-' + targetId);
+  if (!card) return;
+  var mid = card.getBoundingClientRect().top + card.getBoundingClientRect().height / 2;
+  card.classList.add(e.clientY < mid ? 'drop-before' : 'drop-after');
+};
+
+window.ppCardDragLeave = function(e, id) {
+  var card = document.getElementById('ppCard-' + id);
+  if (card && !card.contains(e.relatedTarget)) {
+    card.classList.remove('drop-before', 'drop-after');
+  }
+};
+
+// Card drop: handles both same-col reorder and cross-col move with precise positioning
+window.ppCardDrop = function(e, targetId, colKey) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!ppDragId || ppDragId === targetId) return;
+
+  var proj = getProj(ppDragId);
+  if (!proj) return;
+
+  var card = document.getElementById('ppCard-' + targetId);
+  var mid  = card ? card.getBoundingClientRect().top + card.getBoundingClientRect().height / 2 : null;
+  var insertAfter = mid !== null && e.clientY >= mid;
+
+  // Remove from source
+  ppColOrder[ppDragSrcCol] = (ppColOrder[ppDragSrcCol] || []).filter(function(i) { return i !== ppDragId; });
+
+  // Insert into target column at the right position
+  var order  = ppColOrder[colKey] || [];
+  var toIdx  = order.indexOf(targetId);
+  order.splice(toIdx + (insertAfter ? 1 : 0), 0, ppDragId);
+  ppColOrder[colKey] = order;
+
+  var colDef   = KANBAN_COLS.find(function(c) { return c.key === colKey; });
+  var newType  = colDef ? colDef.typeValue : '';
+  var typeChanged = ppDragSrcCol !== colKey;
+  proj.type = newType;
+
+  renderKanban();
+
+  if (typeChanged) {
+    var rec = {};
+    rec[FIELD.PROJECTS.id]   = { value: proj.id };
+    rec[FIELD.PROJECTS.type] = { value: newType };
+    qbUpsert(TABLES.projects, [rec])
+      .then(function()  { showToast('Project type updated.', 'success'); })
+      .catch(function(err) {
+        showToast('Failed to update project type.', 'error');
+        console.error('[PreProd]', err);
+        ppRefresh();
+      });
+  }
+
+  ppDragId = null;
+  ppDragSrcCol = null;
+};
+
+// Column drag-over/leave/drop: fallback for drops onto empty column space
+window.ppColDragOver = function(e, colKey) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  var col = document.getElementById('ppCol-' + colKey);
+  if (col) col.classList.add('drag-over');
+};
+
+window.ppColDragLeave = function(e, colKey) {
+  var col = document.getElementById('ppCol-' + colKey);
+  if (col && !col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+};
+
+window.ppColDrop = function(e, colKey) {
+  e.preventDefault();
+  if (!ppDragId || ppDragSrcCol === colKey) return;
+
+  var col = document.getElementById('ppCol-' + colKey);
+  if (col) col.classList.remove('drag-over');
+
+  var proj = getProj(ppDragId);
+  if (!proj) return;
+
+  var colDef  = KANBAN_COLS.find(function(c) { return c.key === colKey; });
+  var newType = colDef ? colDef.typeValue : '';
+
+  ppColOrder[ppDragSrcCol] = (ppColOrder[ppDragSrcCol] || []).filter(function(i) { return i !== ppDragId; });
+  ppColOrder[colKey] = ppColOrder[colKey] || [];
+  ppColOrder[colKey].push(ppDragId);
+  proj.type = newType;
+
+  renderKanban();
+
+  var rec = {};
+  rec[FIELD.PROJECTS.id]   = { value: proj.id };
+  rec[FIELD.PROJECTS.type] = { value: newType };
+  qbUpsert(TABLES.projects, [rec])
+    .then(function()  { showToast('Project type updated.', 'success'); })
+    .catch(function(err) {
+      showToast('Failed to update project type.', 'error');
+      console.error('[PreProd]', err);
+      ppRefresh();
+    });
+
+  ppDragId = null;
+  ppDragSrcCol = null;
+};
+
+// ─── REFRESH ───────────────────────────────────────────────────
 async function ppRefresh() {
   if (ppLoading) return;
   ppLoading = true;
   var container = document.getElementById('ppKanbanContent');
-  if (container) { container.className = 'pp-loading'; container.innerHTML = 'Loading…'; }
+  if (container) { container.className = 'pp-loading'; container.innerHTML = 'Loading\u2026'; }
   try {
     await ppLoadData();
     renderKanban();
-  } catch(e) {
+  } catch(err) {
     if (container) { container.className = 'pp-loading'; container.innerHTML = 'Error loading data.'; }
     showToast('Failed to load pre-production data.', 'error');
-    console.error('[PreProd]', e);
+    console.error('[PreProd]', err);
   } finally {
     ppLoading = false;
   }
 }
 
-function ppCloseModal() {
-  var m = document.getElementById('ppModal');
-  if (m) m.style.display = 'none';
-}
+// ─── GLOBALS ───────────────────────────────────────────────────
+window.ppSwitchSub = switchSub;
+window.ppRefresh   = ppRefresh;
 
+// ─── REGISTER ─────────────────────────────────────────────────
 registerTab('preproduction', {
   icon: '🎬', label: 'Pre-Production',
   roles: ALL_ROLES,
@@ -161,12 +370,10 @@ registerTab('preproduction', {
     var style = document.createElement('style');
     style.textContent = ppCSS;
     document.head.appendChild(style);
-
     document.getElementById('tab-preproduction').innerHTML = buildHTML();
     ppRefresh();
   },
   onActivate: function() {
-    // Refresh if data is stale (no data loaded yet)
     if (ppProjects.length === 0 && !ppLoading) ppRefresh();
   }
 });
