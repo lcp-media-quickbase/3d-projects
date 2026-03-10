@@ -42,8 +42,8 @@ var ppCSS = `
   .pp-subtab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
   .pp-subtab-pane { display:none; flex:1; overflow:hidden; min-height:0; }
   .pp-subtab-pane.active { display:flex; flex-direction:column; min-height:0; }
-  .kanban-board { display:flex; gap:12px; padding:16px; overflow-x:auto; overflow-y:hidden; flex:1; align-items:flex-start; min-height:0; }
-  .kanban-col { flex:0 0 280px; background:var(--surface); border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; max-height:100%; transition:border-color 0.15s, background 0.15s; }
+  .kanban-board { display:flex; gap:12px; padding:16px; overflow-x:auto; overflow-y:hidden; flex:1; align-items:stretch; min-height:0; }
+  .kanban-col { flex:0 0 280px; background:var(--surface); border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; transition:border-color 0.15s, background 0.15s; }
   .kanban-col.drag-over { border-color:var(--accent); background:rgba(104,182,229,0.06); }
   .kanban-col-header { padding:12px 14px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
   .kanban-col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
@@ -112,8 +112,8 @@ async function ppLoadData() {
     TABLES.projects,
     [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.number,
      FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod,
-     FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid141],
-    '{' + FIELD.PROJECTS.stage + '.XEX.\'Complete\'}'
+     FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid137],
+    '{' + FIELD.PROJECTS.stage + '.EX.\'Pre-Production\'}'
   );
 
   ppProjects = rows.map(function(r) {
@@ -126,7 +126,7 @@ async function ppLoadData() {
       pod:    val(r, FIELD.PROJECTS.pod),
       // Raw HTML from formula rich-text fields — rendered directly as buttons
       fid85:  (r[FIELD.PROJECTS.fid85]  && r[FIELD.PROJECTS.fid85].value)  || '',
-      fid141: (r[FIELD.PROJECTS.fid141] && r[FIELD.PROJECTS.fid141].value) || ''
+      fid137: (r[FIELD.PROJECTS.fid137] && r[FIELD.PROJECTS.fid137].value) || ''
     };
   });
 
@@ -172,7 +172,7 @@ function renderKanban() {
         if (!p) return;
         var btns = '';
         if (p.fid85)  btns += '<span>' + p.fid85  + '</span>';
-        if (p.fid141) btns += '<span>' + p.fid141 + '</span>';
+        if (p.fid137) btns += '<span>' + p.fid137 + '</span>';
 
         html += '<div class="kanban-card" id="ppCard-' + p.id + '"' +
           ' draggable="true"' +
