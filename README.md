@@ -38,6 +38,23 @@ dashboard shell (ID 20)  →  reads version.json (@main)  →  this repo
 |---|---|---|
 | `btnit6q26` | `btnit9gpf` | Support tickets (Submit Ticket button) |
 
+### Features
+
+| Feature | Status | Notes |
+|---|---|---|
+| Scheduler (Gantt) | Live | Drag/resize assignments, vacation overlays, POD filtering |
+| Vacations | Live | Request workflow, approval status |
+| Reports | Live | Utilization analytics, capacity, work-type breakdown |
+| Admin | Live | People/Projects/PODs CRUD, overview stats |
+| Pre-Production | Placeholder | — |
+| Quotes | Placeholder | — |
+| Timesheets | Placeholder | — |
+
+**Additional features:**
+- **Dark / Light theme** — toggled via header button, persisted to localStorage
+- **ViewAs / Test Mode** — Admins can impersonate a role or specific user to QA the UI; red banner appears while active
+- **Ticket Drawer** — Submit support/dev tickets to the cross-app ticket system (top-right button)
+
 ### Roles
 
 | Role ID | Name | Tabs Visible |
@@ -52,7 +69,7 @@ dashboard shell (ID 20)  →  reads version.json (@main)  →  this repo
 ```
 codepages/
 ├── shared.css          Design system (Aileron font, LCP Blue #68B6E5)
-├── shared.js           Auth, API client, role detection, data cache, tab framework
+├── shared.js           Auth, API client, role detection, data cache, tab framework, theme toggle, ViewAs test mode, ticket drawer
 ├── dashboard.html      Single-page shell — tab container + app header
 ├── version.json        Current tagged version pointer
 └── tabs/
