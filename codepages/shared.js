@@ -31,7 +31,7 @@ var FIELD = {
     start:15, end:16, hours:17, desc:18, workType:19, draft:20,
     priority:21, weekend:22, tdId:23, color:24 },
   PEOPLE: { id:3, name:7, email:8, role:11, active:19, podName:22, tdId:23, partTime:24 },
-  PROJECTS: { id:3, name:19, number:23, type:26, stage:27, pod:82, deal:52, fid85:85, fid137:137 },
+  PROJECTS: { id:3, name:19, number:23, type:26, stage:27, pod:82, deal:52, fid49:49, fid54:54, fid55:55, fid85:85, fid137:137 },
   MILESTONES: { id:3, project:6, projectName:7, projectNum:8, name:10, phase:11, start:12, end:13 },
   PODS: { id:3, name:6, tdId:11 },
   VACATION: { id:3, person:6, personName:7, personEmail:8, personPod:9, personTdId:10, start:11, end:12, type:13, status:14, notes:15 }

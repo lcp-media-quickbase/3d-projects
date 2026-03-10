@@ -42,13 +42,15 @@ var ppCSS = `
   .pp-subtab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
   .pp-subtab-pane { display:none; flex:1; overflow:hidden; min-height:0; }
   .pp-subtab-pane.active { display:flex; flex-direction:column; min-height:0; }
+  #ppKanbanContent { display:flex; flex:1; min-height:0; overflow:hidden; }
+  #ppKanbanContent.pp-loading { display:flex; align-items:center; justify-content:center; }
   .kanban-board { display:flex; gap:12px; padding:16px; overflow-x:auto; overflow-y:hidden; flex:1; align-items:stretch; min-height:0; }
   .kanban-col { flex:0 0 280px; background:var(--surface); border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; transition:border-color 0.15s, background 0.15s; }
   .kanban-col.drag-over { border-color:var(--accent); background:rgba(104,182,229,0.06); }
   .kanban-col-header { padding:12px 14px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
   .kanban-col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
   .kanban-col-count { font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:var(--border); color:var(--text-muted); }
-  .kanban-cards { padding:8px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex:1; min-height:48px; }
+  .kanban-cards { padding:8px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex:1; min-height:0; }
   .kanban-card { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:grab; user-select:none; transition:border-color 0.15s, box-shadow 0.15s, opacity 0.15s; }
   .kanban-card:hover { border-color:var(--accent); box-shadow:0 2px 8px rgba(0,0,0,0.18); }
   .kanban-card:active { cursor:grabbing; }
@@ -56,8 +58,12 @@ var ppCSS = `
   .kanban-card.drop-before { border-top:2px solid var(--accent); }
   .kanban-card.drop-after  { border-bottom:2px solid var(--accent); }
   .kanban-card-name { font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; line-height:1.3; }
-  .kanban-card-btns { display:flex; gap:6px; flex-wrap:wrap; }
+  .kanban-card-btns { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
   .kanban-card-btns a, .kanban-card-btns button { font-size:11px !important; padding:3px 10px !important; border-radius:4px !important; line-height:1.5 !important; }
+  .kanban-card-sub { font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:3px; line-height:1.3; }
+  .kanban-card-detail { font-size:11px; color:var(--text-dim); margin-bottom:6px; line-height:1.3; }
+  .kanban-card-bottom { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+  .kanban-card-bottom a, .kanban-card-bottom button { font-size:11px !important; padding:3px 10px !important; border-radius:4px !important; line-height:1.5 !important; }
   .kanban-empty { padding:24px 14px; text-align:center; font-size:12px; color:var(--text-dim); }
   .pp-loading { display:flex; align-items:center; justify-content:center; flex:1; color:var(--text-dim); font-size:14px; }
   .pp-placeholder { display:flex; align-items:center; justify-content:center; flex:1; flex-direction:column; gap:12px; color:var(--text-dim); }
@@ -112,6 +118,7 @@ async function ppLoadData() {
     TABLES.projects,
     [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.number,
      FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod,
+     FIELD.PROJECTS.fid49, FIELD.PROJECTS.fid54, FIELD.PROJECTS.fid55,
      FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid137],
     '{' + FIELD.PROJECTS.stage + '.EX.\'Pre-Production\'}'
   );
@@ -124,7 +131,10 @@ async function ppLoadData() {
       type:   val(r, FIELD.PROJECTS.type),
       stage:  val(r, FIELD.PROJECTS.stage),
       pod:    val(r, FIELD.PROJECTS.pod),
+      fid54:  val(r, FIELD.PROJECTS.fid54),
+      fid55:  val(r, FIELD.PROJECTS.fid55),
       // Raw HTML from formula rich-text fields — rendered directly as buttons
+      fid49:  (r[FIELD.PROJECTS.fid49]  && r[FIELD.PROJECTS.fid49].value)  || '',
       fid85:  (r[FIELD.PROJECTS.fid85]  && r[FIELD.PROJECTS.fid85].value)  || '',
       fid137: (r[FIELD.PROJECTS.fid137] && r[FIELD.PROJECTS.fid137].value) || ''
     };
@@ -183,6 +193,9 @@ function renderKanban() {
           ' ondrop="ppCardDrop(event,' + p.id + ',\'' + col.key + '\')">' +
           '<div class="kanban-card-name">' + escapeHtml(p.name || '\u2014') + '</div>' +
           (btns ? '<div class="kanban-card-btns">' + btns + '</div>' : '') +
+          (p.fid54 ? '<div class="kanban-card-sub">'    + escapeHtml(p.fid54) + '</div>' : '') +
+          (p.fid55 ? '<div class="kanban-card-detail">' + escapeHtml(p.fid55) + '</div>' : '') +
+          (p.fid49 ? '<div class="kanban-card-bottom"><span>' + p.fid49 + '</span></div>' : '') +
           '</div>';
       });
     }
