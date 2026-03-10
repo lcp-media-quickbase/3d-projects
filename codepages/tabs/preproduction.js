@@ -10,6 +10,23 @@ var ppColOrder  = {};   // { colKey: [id, id, ...] } — manual ordering per col
 var ppDragId    = null; // project id being dragged
 var ppDragSrcCol = null; // source column key
 
+var TYPE_COLORS = {
+  'Urgent':      '#ff4757',
+  'Not Started': '#ffa502',
+  'In Progress': '#68B6E5',
+  'Cold':        '#868e96',
+  'Complete':    '#2ed573'
+};
+
+var STAGE_COLORS = {
+  'Pre-Production':           '#a29bfe',
+  'In Production':            '#74b9ff',
+  'Complete':                 '#2ed573',
+  'Delivered':                '#00b894',
+  'Ready for Production':     '#fdcb6e',
+  'Awaiting Client Feedback': '#e17055'
+};
+
 var KANBAN_COLS = [
   { key: 'blank',        label: 'Blank',        typeValue: '',             match: function(t){ return !t || t === ''; } },
   { key: 'urgent',       label: 'Urgent',        typeValue: 'Urgent',       match: function(t){ return t === 'Urgent'; } },
@@ -66,7 +83,18 @@ var ppCSS = `
   .pp-modal-title { font-size:15px; font-weight:700; color:var(--text); }
   .pp-modal-close { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:none; color:var(--text-muted); cursor:pointer; border-radius:6px; font-size:16px; transition:color 0.15s, background 0.15s; }
   .pp-modal-close:hover { color:var(--text); background:var(--border); }
-  .pp-modal-body { flex:1; overflow-y:auto; padding:20px; }
+  .pp-modal-body { flex:1; overflow-y:auto; padding:0; display:flex; flex-direction:column; }
+  .pp-modal-subheader { padding:12px 20px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .pp-modal-client { font-size:13px; color:var(--text-muted); font-weight:500; flex:1; min-width:120px; }
+  .pp-modal-closedate { font-size:12px; color:var(--text-dim); }
+  .pp-badge { display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; letter-spacing:0.02em; }
+  .pp-modal-info { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; border-bottom:1px solid var(--border); }
+  .pp-modal-info-item { display:flex; flex-direction:column; gap:3px; }
+  .pp-modal-info-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
+  .pp-modal-info-value { font-size:13px; color:var(--text); }
+  .pp-modal-report { flex:1; padding:20px; display:flex; flex-direction:column; gap:12px; }
+  .pp-modal-report-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); }
+  .pp-modal-report-placeholder { display:flex; align-items:center; justify-content:center; flex:1; color:var(--text-dim); font-size:13px; border:1px dashed var(--border); border-radius:8px; min-height:80px; }
   .kanban-card-btns { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
   .kanban-card-btns a, .kanban-card-btns button { font-size:11px !important; padding:3px 10px !important; border-radius:4px !important; line-height:1.5 !important; }
   .kanban-card-sub { font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:3px; line-height:1.3; }
@@ -128,7 +156,7 @@ async function ppLoadData() {
     [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.number,
      FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod,
      FIELD.PROJECTS.fid49, FIELD.PROJECTS.fid54, FIELD.PROJECTS.fid55,
-     FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid137],
+     FIELD.PROJECTS.fid62, FIELD.PROJECTS.fid85, FIELD.PROJECTS.fid137],
     '{' + FIELD.PROJECTS.stage + '.EX.\'Pre-Production\'}'
   );
 
@@ -141,6 +169,7 @@ async function ppLoadData() {
       stage:  val(r, FIELD.PROJECTS.stage),
       pod:    val(r, FIELD.PROJECTS.pod),
       fid54:  val(r, FIELD.PROJECTS.fid54),
+      fid62:  val(r, FIELD.PROJECTS.fid62),
       fid55:  (function(v) {
         if (!v) return '';
         var p = v.split('-');
@@ -413,7 +442,31 @@ window.ppOpenModal = function(id) {
   var proj = getProj(id);
   var overlay = getOrCreateModal();
   overlay.querySelector('.pp-modal-title').textContent = proj ? (proj.name || '\u2014') : '';
-  overlay.querySelector('.pp-modal-body').innerHTML = '';
+
+  var typeColor  = (proj && TYPE_COLORS[proj.type])  || 'var(--text-dim)';
+  var stageColor = (proj && STAGE_COLORS[proj.stage]) || 'var(--text-dim)';
+
+  var typeBadge  = proj && proj.type
+    ? '<span class="pp-badge" style="background:' + typeColor + '22;color:' + typeColor + '">' + escapeHtml(proj.type) + '</span>' : '';
+  var stageBadge = proj && proj.stage
+    ? '<span class="pp-badge" style="background:' + stageColor + '22;color:' + stageColor + '">' + escapeHtml(proj.stage) + '</span>' : '';
+  var closeDate  = proj && proj.fid55 ? '<span class="pp-modal-closedate">Deal Closed: ' + escapeHtml(proj.fid55) + '</span>' : '';
+
+  overlay.querySelector('.pp-modal-body').innerHTML =
+    '<div class="pp-modal-subheader">' +
+      '<span class="pp-modal-client">' + escapeHtml((proj && proj.fid54) || '\u2014') + '</span>' +
+      typeBadge + stageBadge + closeDate +
+    '</div>' +
+    '<div class="pp-modal-info">' +
+      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Sales Rep</span><span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid62) || '\u2014') + '</span></div>' +
+      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">POD</span><span class="pp-modal-info-value">' + escapeHtml((proj && proj.pod) || '\u2014') + '</span></div>' +
+      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Project #</span><span class="pp-modal-info-value">' + escapeHtml((proj && proj.number) || '\u2014') + '</span></div>' +
+    '</div>' +
+    '<div class="pp-modal-report">' +
+      '<div class="pp-modal-report-title">Child Records</div>' +
+      '<div class="pp-modal-report-placeholder">Interactive report coming soon</div>' +
+    '</div>';
+
   overlay.style.display = 'flex';
 };
 
