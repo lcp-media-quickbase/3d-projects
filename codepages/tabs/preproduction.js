@@ -25,6 +25,22 @@ var SCOPE_COLS = [
   { key: 'totalValue',  label: 'Total Value', fid: FIELD.SCOPE.totalValue,  type: 'currency' }
 ];
 
+// Assets report state
+var ppAssetsData    = [];
+var ppAssetsChanges = {};   // { recordId: { fid: value, ... } } — buffered until modal close
+var ppAssetsFilter  = { received: '', assetType: '' };
+var ppAssetsSortState = { col: 'fileType', dir: 'asc' };
+var ppAssetDialogState = { id: null, fid: null, key: null };
+
+var ASSETS_COLS = [
+  { key: 'fileType',   label: 'File Type',           fid: FIELD.ASSETS.fileType,   type: 'text'  },
+  { key: 'assetTypes', label: 'Related Asset Types', fid: FIELD.ASSETS.assetTypes, type: 'text'  },
+  { key: 'notes',      label: 'Notes',               fid: FIELD.ASSETS.notes,      type: 'notes' },
+  { key: 'fileLink',   label: 'File Link',           fid: FIELD.ASSETS.fileLink,   type: 'link'  },
+  { key: 'received',   label: 'Received?',           fid: FIELD.ASSETS.received,   type: 'check' },
+  { key: 'hidden',     label: 'Hidden?',             fid: FIELD.ASSETS.hidden,     type: 'check' }
+];
+
 var TYPE_COLORS = {
   'Urgent':      '#ff4757',
   'Not Started': '#ffa502',
@@ -156,6 +172,19 @@ var ppCSS = `
   .pp-scope-table tbody tr:last-child td { border-bottom:none; }
   .pp-scope-table tbody tr:hover td { background:rgba(104,182,229,0.06); }
   .pp-scope-empty { text-align:center; color:var(--text-dim); font-style:italic; padding:24px; }
+  .pp-cell-btn { width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border:none; background:none; color:var(--text-dim); cursor:pointer; border-radius:4px; padding:0; transition:color 0.15s, background 0.15s; vertical-align:middle; flex-shrink:0; }
+  .pp-cell-btn:hover { color:var(--accent); background:var(--border); }
+  .pp-cell-link { color:var(--accent); text-decoration:none; font-size:13px; }
+  .pp-cell-link:hover { text-decoration:underline; }
+  .pp-cell-notes { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; }
+  .pp-asset-dialog-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:10000; }
+  .pp-asset-dialog { background:var(--surface); border:1px solid var(--border); border-radius:10px; width:380px; max-width:92vw; box-shadow:0 6px 24px rgba(0,0,0,0.35); display:flex; flex-direction:column; }
+  .pp-asset-dialog-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); }
+  .pp-asset-dialog-title { font-size:13px; font-weight:700; color:var(--text); }
+  .pp-asset-dialog-body { padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
+  .pp-asset-dialog-input { width:100%; font-size:13px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:7px 10px; font-family:inherit; outline:none; resize:vertical; box-sizing:border-box; transition:border-color 0.15s; }
+  .pp-asset-dialog-input:focus { border-color:var(--accent); }
+  .pp-asset-dialog-footer { display:flex; gap:8px; justify-content:flex-end; padding:10px 16px; border-top:1px solid var(--border); }
 `;
 
 // ─── HTML ──────────────────────────────────────────────────────
@@ -583,6 +612,251 @@ window.ppScopeFilterChange = function(v) {
   ppRenderScope();
 };
 
+// ─── ASSETS REPORT ─────────────────────────────────────────────
+async function ppLoadAssets(projId) {
+  ppAssetsData    = [];
+  ppAssetsChanges = {};
+  ppAssetsFilter  = { received: '', assetType: '' };
+  ppAssetsSortState = { col: 'fileType', dir: 'asc' };
+  var pane = document.getElementById('ppModalPane-assets');
+  if (!pane) return;
+  pane.innerHTML = '<div class="pp-loading">Loading\u2026</div>';
+  try {
+    var fids = [FIELD.ASSETS.id, FIELD.ASSETS.fileType, FIELD.ASSETS.assetTypes,
+                FIELD.ASSETS.notes, FIELD.ASSETS.fileLink, FIELD.ASSETS.received, FIELD.ASSETS.hidden];
+    var rows = await qbQueryAll(
+      TABLES.assets, fids,
+      '{' + FIELD.ASSETS.projectRef + '.EX.' + projId + '}'
+    );
+    ppAssetsData = rows.map(function(r) {
+      return {
+        id:         val(r, FIELD.ASSETS.id),
+        fileType:   val(r, FIELD.ASSETS.fileType),
+        assetTypes: val(r, FIELD.ASSETS.assetTypes),
+        notes:      val(r, FIELD.ASSETS.notes),
+        fileLink:   val(r, FIELD.ASSETS.fileLink),
+        received:   val(r, FIELD.ASSETS.received),
+        hidden:     val(r, FIELD.ASSETS.hidden)
+      };
+    });
+    ppRenderAssets();
+  } catch(err) {
+    var p = document.getElementById('ppModalPane-assets');
+    if (p) p.innerHTML = '<div class="pp-loading">Failed to load assets.</div>';
+    console.error('[PreProd assets]', err);
+  }
+}
+
+function ppRenderAssets() {
+  var pane = document.getElementById('ppModalPane-assets');
+  if (!pane) return;
+
+  // Unique asset type options from all data (before filter)
+  var assetTypes = [];
+  ppAssetsData.forEach(function(r) {
+    var t = r.assetTypes || '';
+    if (t && assetTypes.indexOf(t) < 0) assetTypes.push(t);
+  });
+  assetTypes.sort(function(a, b) { return a.localeCompare(b); });
+
+  // Filter rows
+  var rows = ppAssetsData.filter(function(r) {
+    if (r.hidden === true || r.hidden === 'true') return false;
+    if (ppAssetsFilter.received === 'yes'  && !(r.received === true || r.received === 'true')) return false;
+    if (ppAssetsFilter.received === 'no'   &&  (r.received === true || r.received === 'true')) return false;
+    if (ppAssetsFilter.assetType && r.assetTypes !== ppAssetsFilter.assetType) return false;
+    return true;
+  });
+
+  // Sort
+  var col = ppAssetsSortState.col;
+  var dir = ppAssetsSortState.dir === 'asc' ? 1 : -1;
+  rows.sort(function(a, b) {
+    var av = a[col], bv = b[col];
+    if (typeof av === 'boolean' || typeof bv === 'boolean') {
+      return ((av ? 1 : 0) - (bv ? 1 : 0)) * dir;
+    }
+    return String(av || '').localeCompare(String(bv || '')) * dir;
+  });
+
+  // Toolbar
+  var typeOpts = '<option value="">All Types</option>' +
+    assetTypes.map(function(t) {
+      return '<option value="' + escapeHtml(t) + '"' + (t === ppAssetsFilter.assetType ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+    }).join('');
+
+  var toolbar =
+    '<div class="pp-scope-toolbar">' +
+      '<select class="pp-scope-filter" onchange="ppAssetsTypeFilter(this.value)">' + typeOpts + '</select>' +
+      '<select class="pp-scope-filter" style="max-width:160px" onchange="ppAssetsReceivedFilter(this.value)">' +
+        '<option value=""' + (!ppAssetsFilter.received ? ' selected' : '') + '>All</option>' +
+        '<option value="yes"' + (ppAssetsFilter.received === 'yes' ? ' selected' : '') + '>Received</option>' +
+        '<option value="no"'  + (ppAssetsFilter.received === 'no'  ? ' selected' : '') + '>Not Received</option>' +
+      '</select>' +
+      '<span class="pp-scope-count">' + rows.length + ' of ' + ppAssetsData.filter(function(r){ return !(r.hidden === true || r.hidden === 'true'); }).length + ' items</span>' +
+    '</div>';
+
+  // Table headers
+  var thead = ASSETS_COLS.map(function(c) {
+    var cls = ppAssetsSortState.col === c.key ? ' sort-' + ppAssetsSortState.dir : '';
+    return '<th class="pp-scope-th' + cls + '" onclick="ppAssetsSetSort(\'' + c.key + '\')">' + escapeHtml(c.label) + '</th>';
+  }).join('');
+
+  // Table body
+  var PENCIL_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+
+  var tbody = rows.length === 0
+    ? '<tr><td class="pp-scope-empty" colspan="' + ASSETS_COLS.length + '">No records found.</td></tr>'
+    : rows.map(function(r) {
+        var cells = ASSETS_COLS.map(function(c) {
+          var v = r[c.key];
+          var content = '';
+          if (c.type === 'check') {
+            var checked = (v === true || v === 'true') ? ' checked' : '';
+            content = '<input type="checkbox"' + checked +
+              ' onchange="ppAssetsCheck(' + r.id + ',' + c.fid + ',this.checked)"' +
+              ' style="cursor:pointer;width:15px;height:15px">';
+          } else if (c.type === 'notes') {
+            var noteText = String(v || '');
+            content =
+              '<span class="pp-cell-notes" title="' + escapeHtml(noteText) + '">' + escapeHtml(noteText) + '</span>' +
+              '<button class="pp-cell-btn" onclick="ppAssetShowDialog(' + r.id + ',' + c.fid + ',\'' + c.key + '\',\'Notes\',\'notes\')" title="Edit notes">' + PENCIL_SVG + '</button>';
+          } else if (c.type === 'link') {
+            var linkVal = String(v || '');
+            var isUrl = linkVal && (linkVal.indexOf('http') === 0 || linkVal.indexOf('//') === 0);
+            content = (isUrl
+              ? '<a class="pp-cell-link" href="' + escapeHtml(linkVal) + '" target="_blank" rel="noopener">Open</a>'
+              : (linkVal ? '<span>' + escapeHtml(linkVal) + '</span>' : '')) +
+              '<button class="pp-cell-btn" onclick="ppAssetShowDialog(' + r.id + ',' + c.fid + ',\'' + c.key + '\',\'File Link\',\'link\')" title="Edit link">' + PENCIL_SVG + '</button>';
+          } else {
+            content = escapeHtml(String(v || ''));
+          }
+          var align = (c.type === 'check') ? ' style="text-align:center"' : '';
+          return '<td class="pp-scope-td"' + align + '>' + content + '</td>';
+        }).join('');
+        return '<tr>' + cells + '</tr>';
+      }).join('');
+
+  pane.innerHTML =
+    toolbar +
+    '<div class="pp-scope-table-wrap">' +
+      '<table class="pp-scope-table">' +
+        '<thead><tr>' + thead + '</tr></thead>' +
+        '<tbody>' + tbody + '</tbody>' +
+      '</table>' +
+    '</div>';
+}
+
+async function ppFlushAssetsChanges() {
+  var ids = Object.keys(ppAssetsChanges);
+  if (ids.length === 0) return;
+  var records = ids.map(function(id) {
+    var changes = ppAssetsChanges[id];
+    var rec = {};
+    rec[FIELD.ASSETS.id] = { value: parseInt(id, 10) };
+    Object.keys(changes).forEach(function(fid) {
+      rec[parseInt(fid, 10)] = { value: changes[fid] };
+    });
+    return rec;
+  });
+  ppAssetsChanges = {};
+  try {
+    await qbUpsert(TABLES.assets, records);
+    showToast('Asset changes saved.', 'success');
+  } catch(err) {
+    showToast('Failed to save asset changes.', 'error');
+    console.error('[PreProd assets]', err);
+  }
+}
+
+window.ppAssetsSetSort = function(col) {
+  if (ppAssetsSortState.col === col) {
+    ppAssetsSortState.dir = ppAssetsSortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    ppAssetsSortState.col = col;
+    ppAssetsSortState.dir = 'asc';
+  }
+  ppRenderAssets();
+};
+
+window.ppAssetsTypeFilter = function(v) {
+  ppAssetsFilter.assetType = v;
+  ppRenderAssets();
+};
+
+window.ppAssetsReceivedFilter = function(v) {
+  ppAssetsFilter.received = v;
+  ppRenderAssets();
+};
+
+window.ppAssetsCheck = function(recordId, fid, checked) {
+  var row = ppAssetsData.find(function(r) { return r.id == recordId; });
+  if (row) {
+    var col = ASSETS_COLS.find(function(c) { return c.fid == fid; });
+    if (col) row[col.key] = checked;
+  }
+  if (!ppAssetsChanges[recordId]) ppAssetsChanges[recordId] = {};
+  ppAssetsChanges[recordId][fid] = checked;
+  // If hidden was just checked, re-render to remove the row
+  if (fid === FIELD.ASSETS.hidden && checked) ppRenderAssets();
+};
+
+window.ppAssetShowDialog = function(recordId, fid, key, label, type) {
+  var row = ppAssetsData.find(function(r) { return r.id == recordId; });
+  var currentValue = (row && row[key]) ? String(row[key]) : '';
+  ppAssetDialogState = { id: recordId, fid: fid, key: key };
+
+  var overlay = document.getElementById('ppAssetDialogOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'ppAssetDialogOverlay';
+    overlay.className = 'pp-asset-dialog-overlay';
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) ppAssetDialogClose(); });
+    document.body.appendChild(overlay);
+  }
+
+  var inputHtml = type === 'notes'
+    ? '<textarea class="pp-asset-dialog-input" id="ppAssetDialogInput" rows="5">' + escapeHtml(currentValue) + '</textarea>'
+    : '<input class="pp-asset-dialog-input" id="ppAssetDialogInput" type="text" value="' + escapeHtml(currentValue) + '" placeholder="https://\u2026">';
+
+  overlay.innerHTML =
+    '<div class="pp-asset-dialog">' +
+      '<div class="pp-asset-dialog-header">' +
+        '<span class="pp-asset-dialog-title">Edit ' + escapeHtml(label) + '</span>' +
+        '<button class="pp-modal-close" onclick="ppAssetDialogClose()">&#x2715;</button>' +
+      '</div>' +
+      '<div class="pp-asset-dialog-body">' + inputHtml + '</div>' +
+      '<div class="pp-asset-dialog-footer">' +
+        '<button class="btn btn-sm" onclick="ppAssetDialogClose()">Cancel</button>' +
+        '<button class="btn btn-sm" onclick="ppAssetDialogSave()">Done</button>' +
+      '</div>' +
+    '</div>';
+
+  overlay.style.display = 'flex';
+  var inp = document.getElementById('ppAssetDialogInput');
+  if (inp) { inp.focus(); if (inp.select) inp.select(); }
+};
+
+window.ppAssetDialogClose = function() {
+  var overlay = document.getElementById('ppAssetDialogOverlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.ppAssetDialogSave = function() {
+  var inp = document.getElementById('ppAssetDialogInput');
+  if (!inp) return;
+  var value = inp.value;
+  var id    = ppAssetDialogState.id;
+  var fid   = ppAssetDialogState.fid;
+  var key   = ppAssetDialogState.key;
+  var row   = ppAssetsData.find(function(r) { return r.id == id; });
+  if (row) row[key] = value;
+  if (!ppAssetsChanges[id]) ppAssetsChanges[id] = {};
+  ppAssetsChanges[id][fid] = value;
+  ppAssetDialogClose();
+  ppRenderAssets();
+};
+
 // ─── MODAL ─────────────────────────────────────────────────────
 function getOrCreateModal() {
   var el = document.getElementById('ppModalOverlay');
@@ -667,9 +941,7 @@ window.ppOpenModal = function(id) {
       '<button class="pp-modal-tab-btn"        data-tab="assets"  onclick="ppModalTab(\'assets\')">Technical Assets</button>' +
     '</div>' +
     '<div class="pp-modal-tab-pane active" id="ppModalPane-scope"></div>' +
-    '<div class="pp-modal-tab-pane" id="ppModalPane-assets">' +
-      '<div class="pp-modal-report-placeholder">Technical Assets report coming soon</div>' +
-    '</div>';
+    '<div class="pp-modal-tab-pane" id="ppModalPane-assets"></div>';
 
   // Populate notes view (read-only by default)
   var notesView = overlay.querySelector('#ppNotesView');
@@ -677,13 +949,19 @@ window.ppOpenModal = function(id) {
     notesView.innerHTML = notesHtml || '<span class="pp-notes-empty">No notes yet. Click Edit to add notes.</span>';
   }
 
-  // Load scope report
+  // Load tab reports
   var dealId = proj && proj.deal;
   if (dealId) {
     ppLoadScope(dealId);
   } else {
     var scopePane = overlay.querySelector('#ppModalPane-scope');
     if (scopePane) scopePane.innerHTML = '<div class="pp-loading">No deal reference on this project.</div>';
+  }
+  if (proj && proj.id) {
+    ppLoadAssets(proj.id);
+  } else {
+    var assetsPane = overlay.querySelector('#ppModalPane-assets');
+    if (assetsPane) assetsPane.innerHTML = '<div class="pp-loading">No project reference.</div>';
   }
 
   // Populate POD dropdown async from cache
@@ -701,6 +979,7 @@ window.ppOpenModal = function(id) {
 };
 
 window.ppCloseModal = function() {
+  ppFlushAssetsChanges(); // fire-and-forget; saves buffered checkbox/edit changes
   var el = document.getElementById('ppModalOverlay');
   if (el) el.style.display = 'none';
 };
