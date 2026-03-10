@@ -185,6 +185,16 @@ var ppCSS = `
   .pp-asset-dialog-input { width:100%; font-size:13px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:7px 10px; font-family:inherit; outline:none; resize:vertical; box-sizing:border-box; transition:border-color 0.15s; }
   .pp-asset-dialog-input:focus { border-color:var(--accent); }
   .pp-asset-dialog-footer { display:flex; gap:8px; justify-content:flex-end; padding:10px 16px; border-top:1px solid var(--border); }
+  .pp-type-badge { display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; letter-spacing:0.02em; margin:1px 2px; white-space:nowrap; }
+  .pp-modal-container { display:flex; gap:0; align-items:stretch; max-height:88vh; }
+  .pp-contract-drawer { overflow:hidden; flex-shrink:0; width:0; transition:width 0.35s cubic-bezier(0.4,0,0.2,1), margin-left 0.35s cubic-bezier(0.4,0,0.2,1); }
+  .pp-contract-drawer.open { width:680px; max-width:88vw; margin-left:12px; }
+  .pp-contract-drawer-inner { width:680px; max-width:88vw; max-height:88vh; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.35); display:flex; flex-direction:column; overflow:hidden; }
+  .pp-contract-drawer-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .pp-contract-drawer-title { font-size:14px; font-weight:700; color:var(--text); }
+  .pp-contract-drawer-body { flex:1; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  .pp-contract-frame { flex:1; width:100%; border:none; display:block; }
+  .pp-contract-loading { display:flex; align-items:center; justify-content:center; flex:1; color:var(--text-dim); font-size:14px; }
 `;
 
 // ─── HTML ──────────────────────────────────────────────────────
@@ -629,10 +639,18 @@ async function ppLoadAssets(projId) {
       '{' + FIELD.ASSETS.projectRef + '.EX.' + projId + '}'
     );
     ppAssetsData = rows.map(function(r) {
+      // Multi-select returns an array; val() would JSON.stringify it, so read raw
+      var rawTypes = r[FIELD.ASSETS.assetTypes];
+      var typesArr = [];
+      if (rawTypes && rawTypes.value) {
+        var tv = rawTypes.value;
+        if (Array.isArray(tv)) typesArr = tv;
+        else if (typeof tv === 'string' && tv) { try { var p = JSON.parse(tv); typesArr = Array.isArray(p) ? p : [tv]; } catch(e) { typesArr = [tv]; } }
+      }
       return {
         id:         val(r, FIELD.ASSETS.id),
         fileType:   val(r, FIELD.ASSETS.fileType),
-        assetTypes: val(r, FIELD.ASSETS.assetTypes),
+        assetTypes: typesArr,
         notes:      val(r, FIELD.ASSETS.notes),
         fileLink:   val(r, FIELD.ASSETS.fileLink),
         received:   val(r, FIELD.ASSETS.received),
@@ -651,11 +669,12 @@ function ppRenderAssets() {
   var pane = document.getElementById('ppModalPane-assets');
   if (!pane) return;
 
-  // Unique asset type options from all data (before filter)
+  // Unique individual asset type options from all data (before filter)
   var assetTypes = [];
   ppAssetsData.forEach(function(r) {
-    var t = r.assetTypes || '';
-    if (t && assetTypes.indexOf(t) < 0) assetTypes.push(t);
+    (r.assetTypes || []).forEach(function(t) {
+      if (t && assetTypes.indexOf(t) < 0) assetTypes.push(t);
+    });
   });
   assetTypes.sort(function(a, b) { return a.localeCompare(b); });
 
@@ -664,7 +683,7 @@ function ppRenderAssets() {
     if (r.hidden === true || r.hidden === 'true') return false;
     if (ppAssetsFilter.received === 'yes'  && !(r.received === true || r.received === 'true')) return false;
     if (ppAssetsFilter.received === 'no'   &&  (r.received === true || r.received === 'true')) return false;
-    if (ppAssetsFilter.assetType && r.assetTypes !== ppAssetsFilter.assetType) return false;
+    if (ppAssetsFilter.assetType && (r.assetTypes || []).indexOf(ppAssetsFilter.assetType) < 0) return false;
     return true;
   });
 
@@ -728,6 +747,12 @@ function ppRenderAssets() {
               ? '<a class="pp-cell-link" href="' + escapeHtml(linkVal) + '" target="_blank" rel="noopener">Open</a>'
               : (linkVal ? '<span>' + escapeHtml(linkVal) + '</span>' : '')) +
               '<button class="pp-cell-btn" onclick="ppAssetShowDialog(' + r.id + ',' + c.fid + ',\'' + c.key + '\',\'File Link\',\'link\')" title="Edit link">' + PENCIL_SVG + '</button>';
+          } else if (c.key === 'assetTypes') {
+            var types = Array.isArray(v) ? v : (v ? [v] : []);
+            content = types.map(function(t) {
+              var color = ppAssetTypeColor(t);
+              return '<span class="pp-type-badge" style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44">' + escapeHtml(t) + '</span>';
+            }).join('');
           } else {
             content = escapeHtml(String(v || ''));
           }
@@ -857,6 +882,43 @@ window.ppAssetDialogSave = function() {
   ppRenderAssets();
 };
 
+function ppAssetTypeColor(type) {
+  var palette = ['#a29bfe','#74b9ff','#fd79a8','#fdcb6e','#6c5ce7','#00b894','#e17055','#0984e3','#55efc4','#fab005'];
+  var h = 0;
+  for (var i = 0; i < type.length; i++) h = type.charCodeAt(i) + ((h << 5) - h);
+  return palette[Math.abs(h) % palette.length];
+}
+
+window.ppOpenContract = function(projId) {
+  var proj = getProj(projId);
+  if (!proj || !proj.deal) { showToast('No contract reference found.', 'error'); return; }
+  var drawer  = document.getElementById('ppContractDrawer');
+  var loading = document.getElementById('ppContractLoading');
+  var frame   = document.getElementById('ppContractFrame');
+  if (!drawer || !frame) return;
+
+  // Reset + open drawer
+  frame.style.display = 'none';
+  frame.src = '';
+  if (loading) loading.style.display = 'flex';
+  drawer.classList.add('open');
+
+  // QB legacy file URL — works same-origin on a Code Page
+  var fileUrl = 'https://' + QB_REALM + '/db/' + TABLES.contracts + '?a=getfile&rid=' + proj.deal + '&fid=' + FIELD.CONTRACTS.pdf + '&vid=0';
+  frame.onload = function() {
+    if (loading) loading.style.display = 'none';
+    frame.style.display = 'block';
+  };
+  frame.src = fileUrl;
+};
+
+window.ppCloseContract = function() {
+  var drawer = document.getElementById('ppContractDrawer');
+  var frame  = document.getElementById('ppContractFrame');
+  if (drawer) drawer.classList.remove('open');
+  if (frame)  { frame.src = ''; frame.style.display = 'none'; }
+};
+
 // ─── MODAL ─────────────────────────────────────────────────────
 function getOrCreateModal() {
   var el = document.getElementById('ppModalOverlay');
@@ -865,15 +927,29 @@ function getOrCreateModal() {
     el.id = 'ppModalOverlay';
     el.className = 'pp-modal-overlay';
     el.innerHTML =
-      '<div class="pp-modal">' +
-        '<div class="pp-modal-header">' +
-          '<div class="pp-modal-title-wrap">' +
-            '<span class="pp-modal-title"></span>' +
-            '<div class="pp-modal-header-badges"></div>' +
+      '<div class="pp-modal-container" id="ppModalContainer">' +
+        '<div class="pp-modal" id="ppModal">' +
+          '<div class="pp-modal-header">' +
+            '<div class="pp-modal-title-wrap">' +
+              '<span class="pp-modal-title"></span>' +
+              '<div class="pp-modal-header-badges"></div>' +
+            '</div>' +
+            '<button class="pp-modal-close" onclick="ppCloseModal()" title="Close">&#x2715;</button>' +
           '</div>' +
-          '<button class="pp-modal-close" onclick="ppCloseModal()" title="Close">&#x2715;</button>' +
+          '<div class="pp-modal-body"></div>' +
         '</div>' +
-        '<div class="pp-modal-body"></div>' +
+        '<div class="pp-contract-drawer" id="ppContractDrawer">' +
+          '<div class="pp-contract-drawer-inner">' +
+            '<div class="pp-contract-drawer-header">' +
+              '<span class="pp-contract-drawer-title">Contract</span>' +
+              '<button class="pp-modal-close" onclick="ppCloseContract()" title="Close">&#x2715;</button>' +
+            '</div>' +
+            '<div class="pp-contract-drawer-body">' +
+              '<div id="ppContractLoading" class="pp-contract-loading">Loading contract\u2026</div>' +
+              '<iframe id="ppContractFrame" class="pp-contract-frame" style="display:none"></iframe>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
       '</div>';
     el.addEventListener('click', function(e) { if (e.target === el) ppCloseModal(); });
     document.body.appendChild(el);
@@ -913,6 +989,7 @@ window.ppOpenModal = function(id) {
           '<select class="pp-modal-select" id="ppEditPod" onchange="ppSaveField(' + id + ',' + FIELD.PROJECTS.pod + ',this.value,\'pod\')">' +
             '<option value="">Loading\u2026</option>' +
           '</select></div>' +
+        '<button class="btn btn-sm" style="margin-top:4px;width:100%" onclick="ppOpenContract(' + id + ')">View Contract</button>' +
       '</div>' +
       '<div class="pp-modal-info-col" style="flex:2;min-height:0">' +
         '<div class="pp-notes-header">' +
@@ -974,6 +1051,9 @@ window.ppOpenModal = function(id) {
         return '<option value="' + escapeHtml(p.name) + '"' + (p.name === cur ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>';
       }).join('');
   });
+
+  // Reset contract drawer on each open
+  ppCloseContract();
 
   overlay.style.display = 'flex';
 };
