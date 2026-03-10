@@ -903,8 +903,12 @@ window.ppOpenContract = function(projId) {
   if (loading) loading.style.display = 'flex';
   drawer.classList.add('open');
 
-  // QB legacy file URL — works same-origin on a Code Page
-  var fileUrl = 'https://' + QB_REALM + '/db/' + TABLES.contracts + '?a=getfile&rid=' + proj.deal + '&fid=' + FIELD.CONTRACTS.pdf + '&vid=0';
+  // QB iframe.html embed URL (same pattern as formula URL field buttons)
+  var fileUrl = 'https://' + QB_REALM + '/db/btprgw56v?a=dbpage&pagename=iframe.html' +
+    '&rid=' + proj.deal +
+    '&tabledbid=' + TABLES.contracts +
+    '&myurlroot=https://' + QB_REALM + '/' +
+    '&fileattachmentfid=' + FIELD.CONTRACTS.pdf;
   frame.onload = function() {
     if (loading) loading.style.display = 'none';
     frame.style.display = 'block';
