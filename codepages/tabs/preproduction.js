@@ -186,8 +186,9 @@ var ppCSS = `
   .pp-asset-dialog-input:focus { border-color:var(--accent); }
   .pp-asset-dialog-footer { display:flex; gap:8px; justify-content:flex-end; padding:10px 16px; border-top:1px solid var(--border); }
   .pp-type-badge { display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; letter-spacing:0.02em; margin:1px 2px; white-space:nowrap; }
-  .pp-modal-container { display:flex; gap:0; align-items:stretch; max-height:88vh; }
-  .pp-contract-drawer { overflow:hidden; flex-shrink:0; width:0; height:100%; transition:width 0.35s cubic-bezier(0.4,0,0.2,1), margin-left 0.35s cubic-bezier(0.4,0,0.2,1); }
+  .pp-modal-container { display:flex; gap:0; align-items:stretch; height:88vh; max-height:88vh; }
+  .pp-modal { flex-shrink:0; }
+  .pp-contract-drawer { overflow:hidden; flex-shrink:0; width:0; transition:width 0.35s cubic-bezier(0.4,0,0.2,1), margin-left 0.35s cubic-bezier(0.4,0,0.2,1); }
   .pp-contract-drawer.open { width:680px; max-width:88vw; margin-left:12px; }
   .pp-contract-drawer-inner { width:680px; max-width:88vw; height:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.35); display:flex; flex-direction:column; overflow:hidden; }
   .pp-contract-drawer-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); flex-shrink:0; }
