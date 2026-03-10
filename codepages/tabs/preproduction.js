@@ -41,6 +41,20 @@ var ASSETS_COLS = [
   { key: 'hidden',     label: 'Hidden?',             fid: FIELD.ASSETS.hidden,     type: 'check' }
 ];
 
+// TAR (Technical Asset Review dashboard tab) state
+var ppTarData   = [];
+var ppTarLoaded = false;
+var ppTarFilter = { fileType: '', projectName: '', clientName: '' };
+
+var TAR_COLS = [
+  { key: 'projectName', label: 'Project',             fid: FIELD.ASSETS.projectName, type: 'text'  },
+  { key: 'fileType',    label: 'File Type',           fid: FIELD.ASSETS.fileType,    type: 'text'  },
+  { key: 'assetTypes',  label: 'Related Asset Types', fid: FIELD.ASSETS.assetTypes,  type: 'text'  },
+  { key: 'notes',       label: 'Notes',               fid: FIELD.ASSETS.notes,       type: 'notes' },
+  { key: 'fileLink',    label: 'File Link',           fid: FIELD.ASSETS.fileLink,    type: 'link'  },
+  { key: 'received',    label: 'Received?',           fid: FIELD.ASSETS.received,    type: 'check' }
+];
+
 var TYPE_COLORS = {
   'Urgent':      '#ff4757',
   'Not Started': '#ffa502',
@@ -196,6 +210,17 @@ var ppCSS = `
   .pp-contract-drawer-body { flex:1; overflow:hidden; position:relative; display:flex; flex-direction:column; }
   .pp-contract-frame { flex:1; width:100%; border:none; display:block; }
   .pp-contract-loading { display:flex; align-items:center; justify-content:center; flex:1; color:var(--text-dim); font-size:14px; }
+  .pp-tar-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .pp-tar-groups { flex:1; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:8px; min-height:0; }
+  .pp-tar-group { border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .pp-tar-group-header { display:flex; align-items:center; gap:8px; padding:9px 14px; cursor:pointer; background:var(--surface); user-select:none; transition:background 0.15s; }
+  .pp-tar-group-header:hover { background:var(--bg); }
+  .pp-tar-group-chevron { font-size:10px; color:var(--text-muted); transition:transform 0.2s; display:inline-block; line-height:1; }
+  .pp-tar-group-header.open .pp-tar-group-chevron { transform:rotate(90deg); }
+  .pp-tar-group-label { font-size:13px; font-weight:700; color:var(--text); flex:1; }
+  .pp-tar-group-count { font-size:11px; color:var(--text-muted); }
+  .pp-tar-group-body { border-top:1px solid var(--border); overflow-x:auto; }
+  .pp-tar-group-body .pp-scope-table { border:none; border-radius:0; }
 `;
 
 // ─── HTML ──────────────────────────────────────────────────────
@@ -211,6 +236,12 @@ function buildHTML() {
     if (s.key === 'kanban') {
       return '<div class="pp-subtab-pane' + active + '" id="ppPane-kanban">' +
         '<div id="ppKanbanContent" class="pp-loading">Loading\u2026</div>' +
+        '</div>';
+    }
+    if (s.key === 'tar') {
+      return '<div class="pp-subtab-pane" id="ppPane-tar">' +
+        '<div id="ppTarToolbar" class="pp-tar-toolbar"><span style="color:var(--text-dim);font-size:13px">Loading\u2026</span></div>' +
+        '<div id="ppTarContent" class="pp-tar-groups pp-loading">Loading\u2026</div>' +
         '</div>';
     }
     return '<div class="pp-subtab-pane" id="ppPane-' + s.key + '">' +
@@ -239,6 +270,7 @@ function switchSub(sub) {
   document.querySelectorAll('.pp-subtab-pane').forEach(function(p) {
     p.classList.toggle('active', p.id === 'ppPane-' + sub);
   });
+  if (sub === 'tar' && !ppTarLoaded) ppLoadTar();
 }
 
 // ─── DATA ──────────────────────────────────────────────────────
@@ -774,6 +806,150 @@ function ppRenderAssets() {
     '</div>';
 }
 
+// ─── TAR REPORT ────────────────────────────────────────────────
+async function ppLoadTar() {
+  var toolbar  = document.getElementById('ppTarToolbar');
+  var groupsEl = document.getElementById('ppTarContent');
+  if (groupsEl) { groupsEl.className = 'pp-tar-groups pp-loading'; groupsEl.innerHTML = 'Loading\u2026'; }
+  try {
+    var fids = [FIELD.ASSETS.id, FIELD.ASSETS.fileType, FIELD.ASSETS.assetTypes,
+                FIELD.ASSETS.notes, FIELD.ASSETS.fileLink, FIELD.ASSETS.received,
+                FIELD.ASSETS.projectName, FIELD.ASSETS.clientName, FIELD.ASSETS.progress];
+    var where = '{' + FIELD.ASSETS.hidden + '.EX.false}AND{' + FIELD.ASSETS.projectStage + '.EX.\'Pre-Production\'}';
+    var rows = await qbQueryAll(TABLES.assets, fids, where);
+    ppTarData = rows.map(function(r) {
+      var rawTypes = r[FIELD.ASSETS.assetTypes];
+      var typesArr = [];
+      if (rawTypes && rawTypes.value) {
+        var tv = rawTypes.value;
+        if (Array.isArray(tv)) typesArr = tv;
+        else if (typeof tv === 'string' && tv) { try { var p = JSON.parse(tv); typesArr = Array.isArray(p) ? p : [tv]; } catch(e) { typesArr = [tv]; } }
+      }
+      return {
+        id:          val(r, FIELD.ASSETS.id),
+        fileType:    val(r, FIELD.ASSETS.fileType),
+        assetTypes:  typesArr,
+        notes:       val(r, FIELD.ASSETS.notes),
+        fileLink:    val(r, FIELD.ASSETS.fileLink),
+        received:    val(r, FIELD.ASSETS.received),
+        projectName: val(r, FIELD.ASSETS.projectName),
+        clientName:  val(r, FIELD.ASSETS.clientName),
+        progress:    val(r, FIELD.ASSETS.progress)
+      };
+    });
+    ppTarLoaded = true;
+    ppRenderTar();
+  } catch(err) {
+    if (groupsEl) { groupsEl.className = 'pp-tar-groups pp-loading'; groupsEl.innerHTML = 'Error loading data.'; }
+    console.error('[TAR]', err);
+  }
+}
+
+function ppRenderTar() {
+  var toolbar  = document.getElementById('ppTarToolbar');
+  var groupsEl = document.getElementById('ppTarContent');
+  if (!toolbar || !groupsEl) return;
+
+  // Unique filter option values from full dataset
+  var fileTypes = [], projectNames = [], clientNames = [];
+  ppTarData.forEach(function(r) {
+    if (r.fileType    && fileTypes.indexOf(r.fileType)       < 0) fileTypes.push(r.fileType);
+    if (r.projectName && projectNames.indexOf(r.projectName) < 0) projectNames.push(r.projectName);
+    if (r.clientName  && clientNames.indexOf(r.clientName)   < 0) clientNames.push(r.clientName);
+  });
+  fileTypes.sort(); projectNames.sort(); clientNames.sort();
+
+  // Apply filters
+  var filtered = ppTarData.filter(function(r) {
+    if (ppTarFilter.fileType    && r.fileType    !== ppTarFilter.fileType)    return false;
+    if (ppTarFilter.projectName && r.projectName !== ppTarFilter.projectName) return false;
+    if (ppTarFilter.clientName  && r.clientName  !== ppTarFilter.clientName)  return false;
+    return true;
+  });
+
+  // Group by progress (FID 48)
+  var groups = {};
+  filtered.forEach(function(r) {
+    var k = String(r.progress != null ? r.progress : '');
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(r);
+  });
+  // Sort group keys high → low (numeric desc, then alpha desc)
+  var groupKeys = Object.keys(groups).sort(function(a, b) {
+    var an = parseFloat(a), bn = parseFloat(b);
+    if (!isNaN(an) && !isNaN(bn)) return bn - an;
+    return b.localeCompare(a);
+  });
+
+  // Render toolbar
+  function makeOpts(arr, cur, allLabel) {
+    return '<option value=""' + (!cur ? ' selected' : '') + '>' + escapeHtml(allLabel) + '</option>' +
+      arr.map(function(v) { return '<option value="' + escapeHtml(v) + '"' + (v === cur ? ' selected' : '') + '>' + escapeHtml(v) + '</option>'; }).join('');
+  }
+  toolbar.innerHTML =
+    '<select class="pp-scope-filter" onchange="ppTarFilterChange(\'fileType\',this.value)">'    + makeOpts(fileTypes,    ppTarFilter.fileType,    'All File Types') + '</select>' +
+    '<select class="pp-scope-filter" onchange="ppTarFilterChange(\'projectName\',this.value)">' + makeOpts(projectNames, ppTarFilter.projectName, 'All Projects')   + '</select>' +
+    '<select class="pp-scope-filter" onchange="ppTarFilterChange(\'clientName\',this.value)">'  + makeOpts(clientNames,  ppTarFilter.clientName,  'All Clients')    + '</select>' +
+    '<span class="pp-scope-count">' + filtered.length + ' item' + (filtered.length !== 1 ? 's' : '') + '</span>' +
+    '<button class="btn btn-sm" style="margin-left:auto" onclick="ppTarExpandAll()">Expand All</button>' +
+    '<button class="btn btn-sm" onclick="ppTarCollapseAll()">Collapse All</button>';
+
+  if (groupKeys.length === 0) {
+    groupsEl.className = 'pp-tar-groups';
+    groupsEl.innerHTML = '<div class="pp-loading" style="min-height:80px">No records found.</div>';
+    return;
+  }
+
+  var PENCIL_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  var thead = TAR_COLS.map(function(c) { return '<th class="pp-scope-th">' + escapeHtml(c.label) + '</th>'; }).join('');
+
+  groupsEl.className = 'pp-tar-groups';
+  groupsEl.innerHTML = groupKeys.map(function(gk) {
+    var grpRows = groups[gk];
+    var tbody = grpRows.map(function(r) {
+      var cells = TAR_COLS.map(function(c) {
+        var v = r[c.key];
+        var cellHtml = '';
+        if (c.type === 'check') {
+          var chk = (v === true || v === 'true') ? ' checked' : '';
+          cellHtml = '<input type="checkbox"' + chk + ' onchange="ppTarCheck(' + r.id + ',' + c.fid + ',this.checked)" style="cursor:pointer;width:15px;height:15px">';
+        } else if (c.type === 'notes') {
+          var nt = String(v || '');
+          cellHtml = '<span class="pp-cell-notes" title="' + escapeHtml(nt) + '">' + escapeHtml(nt) + '</span>' +
+            '<button class="pp-cell-btn" onclick="ppTarShowDialog(' + r.id + ',' + c.fid + ',\'' + c.key + '\',\'Notes\',\'notes\')" title="Edit notes">' + PENCIL_SVG + '</button>';
+        } else if (c.type === 'link') {
+          var lv = String(v || '');
+          var isUrl = lv && (lv.indexOf('http') === 0 || lv.indexOf('//') === 0);
+          cellHtml = (isUrl ? '<a class="pp-cell-link" href="' + escapeHtml(lv) + '" target="_blank" rel="noopener">Open</a>' : (lv ? '<span>' + escapeHtml(lv) + '</span>' : '')) +
+            '<button class="pp-cell-btn" onclick="ppTarShowDialog(' + r.id + ',' + c.fid + ',\'' + c.key + '\',\'File Link\',\'link\')" title="Edit link">' + PENCIL_SVG + '</button>';
+        } else if (c.key === 'assetTypes') {
+          var types = Array.isArray(v) ? v : (v ? [v] : []);
+          cellHtml = types.map(function(t) {
+            var color = ppAssetTypeColor(t);
+            return '<span class="pp-type-badge" style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44">' + escapeHtml(t) + '</span>';
+          }).join('');
+        } else {
+          cellHtml = escapeHtml(String(v || ''));
+        }
+        var align = (c.type === 'check') ? ' style="text-align:center"' : '';
+        return '<td class="pp-scope-td"' + align + '>' + cellHtml + '</td>';
+      }).join('');
+      return '<tr>' + cells + '</tr>';
+    }).join('');
+
+    return '<div class="pp-tar-group">' +
+      '<div class="pp-tar-group-header" onclick="ppTarToggleGroup(this)">' +
+        '<span class="pp-tar-group-chevron">&#9654;</span>' +
+        '<span class="pp-tar-group-label">' + escapeHtml(gk || 'No Progress Set') + '</span>' +
+        '<span class="pp-tar-group-count">' + grpRows.length + ' item' + (grpRows.length !== 1 ? 's' : '') + '</span>' +
+      '</div>' +
+      '<div class="pp-tar-group-body" style="display:none">' +
+        '<table class="pp-scope-table"><thead><tr>' + thead + '</tr></thead><tbody>' + tbody + '</tbody></table>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
 async function ppFlushAssetsChanges() {
   var ids = Object.keys(ppAssetsChanges);
   if (ids.length === 0) return;
@@ -828,8 +1004,9 @@ window.ppAssetsCheck = function(recordId, fid, checked) {
   if (fid === FIELD.ASSETS.hidden && checked) ppRenderAssets();
 };
 
-window.ppAssetShowDialog = function(recordId, fid, key, label, type) {
-  var row = ppAssetsData.find(function(r) { return r.id == recordId; });
+window.ppAssetShowDialog = function(recordId, fid, key, label, type, _forTar) {
+  ppAssetDialogState.context = _forTar ? 'tar' : 'modal';
+  var row = (_forTar ? ppTarData : ppAssetsData).find(function(r) { return r.id == recordId; });
   var currentValue = (row && row[key]) ? String(row[key]) : '';
   ppAssetDialogState = { id: recordId, fid: fid, key: key };
 
@@ -876,12 +1053,20 @@ window.ppAssetDialogSave = function() {
   var id    = ppAssetDialogState.id;
   var fid   = ppAssetDialogState.fid;
   var key   = ppAssetDialogState.key;
-  var row   = ppAssetsData.find(function(r) { return r.id == id; });
-  if (row) row[key] = value;
-  if (!ppAssetsChanges[id]) ppAssetsChanges[id] = {};
-  ppAssetsChanges[id][fid] = value;
   ppAssetDialogClose();
-  ppRenderAssets();
+  if (ppAssetDialogState.context === 'tar') {
+    var tarRow = ppTarData.find(function(r) { return r.id == id; });
+    if (tarRow) tarRow[key] = value;
+    var rec = {}; rec[FIELD.ASSETS.id] = { value: parseInt(id, 10) }; rec[parseInt(fid, 10)] = { value: value };
+    qbUpsert(TABLES.assets, [rec]).then(function() { showToast('Saved.', 'success'); }).catch(function() { showToast('Save failed.', 'error'); });
+    ppRenderTar();
+  } else {
+    var modRow = ppAssetsData.find(function(r) { return r.id == id; });
+    if (modRow) modRow[key] = value;
+    if (!ppAssetsChanges[id]) ppAssetsChanges[id] = {};
+    ppAssetsChanges[id][fid] = value;
+    ppRenderAssets();
+  }
 };
 
 function ppAssetTypeColor(type) {
@@ -1141,6 +1326,40 @@ window.ppNotesSave = function(projId) {
 // ─── GLOBALS ───────────────────────────────────────────────────
 window.ppSwitchSub = switchSub;
 window.ppRefresh   = ppRefresh;
+
+window.ppTarFilterChange = function(field, value) {
+  ppTarFilter[field] = value;
+  ppRenderTar();
+};
+window.ppTarToggleGroup = function(header) {
+  header.classList.toggle('open');
+  var body = header.nextElementSibling;
+  if (body) body.style.display = header.classList.contains('open') ? 'block' : 'none';
+};
+window.ppTarExpandAll = function() {
+  document.querySelectorAll('#ppTarContent .pp-tar-group-header').forEach(function(h) {
+    h.classList.add('open');
+    var b = h.nextElementSibling; if (b) b.style.display = 'block';
+  });
+};
+window.ppTarCollapseAll = function() {
+  document.querySelectorAll('#ppTarContent .pp-tar-group-header').forEach(function(h) {
+    h.classList.remove('open');
+    var b = h.nextElementSibling; if (b) b.style.display = 'none';
+  });
+};
+window.ppTarCheck = function(recordId, fid, checked) {
+  var row = ppTarData.find(function(r) { return r.id == recordId; });
+  if (row) {
+    if (fid === FIELD.ASSETS.received) row.received = checked;
+    else if (fid === FIELD.ASSETS.hidden) row.hidden = checked;
+  }
+  var rec = {}; rec[FIELD.ASSETS.id] = { value: parseInt(recordId, 10) }; rec[parseInt(fid, 10)] = { value: checked };
+  qbUpsert(TABLES.assets, [rec]).then(function() { showToast('Saved.', 'success'); }).catch(function() { showToast('Save failed.', 'error'); });
+};
+window.ppTarShowDialog = function(recordId, fid, key, label, type) {
+  ppAssetShowDialog(recordId, fid, key, label, type, true);
+};
 
 // ─── REGISTER ─────────────────────────────────────────────────
 registerTab('preproduction', {
