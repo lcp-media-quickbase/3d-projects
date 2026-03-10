@@ -192,10 +192,10 @@ function renderKanban() {
           ' ondragleave="ppCardDragLeave(event,' + p.id + ')"' +
           ' ondrop="ppCardDrop(event,' + p.id + ',\'' + col.key + '\')">' +
           '<div class="kanban-card-name">' + escapeHtml(p.name || '\u2014') + '</div>' +
-          (btns ? '<div class="kanban-card-btns">' + btns + '</div>' : '') +
           (p.fid54 ? '<div class="kanban-card-sub">'    + escapeHtml(p.fid54) + '</div>' : '') +
           (p.fid55 ? '<div class="kanban-card-detail">' + escapeHtml(p.fid55) + '</div>' : '') +
-          (p.fid49 ? '<div class="kanban-card-bottom"><span>' + p.fid49 + '</span></div>' : '') +
+          (p.fid49 ? '<div class="kanban-card-btns"><span>' + p.fid49 + '</span></div>' : '') +
+          (p.fid85 ? '<div class="kanban-card-btns"><span>' + p.fid85 + '</span></div>' : '') +
           '</div>';
       });
     }
