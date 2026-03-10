@@ -51,13 +51,22 @@ var ppCSS = `
   .kanban-col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
   .kanban-col-count { font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:var(--border); color:var(--text-muted); }
   .kanban-cards { padding:8px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex:1; min-height:0; }
-  .kanban-card { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:grab; user-select:none; transition:border-color 0.15s, box-shadow 0.15s, opacity 0.15s; }
-  .kanban-card:hover { border-color:var(--accent); box-shadow:0 2px 8px rgba(0,0,0,0.18); }
+  .kanban-card { position:relative; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 32px 10px 12px; cursor:grab; user-select:none; transition:border-color 0.15s, box-shadow 0.15s, opacity 0.15s; }
+  .kanban-card:hover { border-color:var(--col-color, var(--accent)); box-shadow:0 2px 8px rgba(0,0,0,0.18); }
   .kanban-card:active { cursor:grabbing; }
   .kanban-card.dragging { opacity:0.35; }
-  .kanban-card.drop-before { border-top:2px solid var(--accent); }
-  .kanban-card.drop-after  { border-bottom:2px solid var(--accent); }
+  .kanban-card.drop-before { border-top:2px solid var(--col-color, var(--accent)); }
+  .kanban-card.drop-after  { border-bottom:2px solid var(--col-color, var(--accent)); }
+  .kanban-card-open { position:absolute; top:8px; right:8px; width:20px; height:20px; display:flex; align-items:center; justify-content:center; border:none; background:none; color:var(--text-dim); cursor:pointer; border-radius:4px; padding:0; transition:color 0.15s, background 0.15s; }
+  .kanban-card-open:hover { color:var(--col-color, var(--accent)); background:var(--border); }
   .kanban-card-name { font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; line-height:1.3; }
+  .pp-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:9999; }
+  .pp-modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; width:620px; max-width:92vw; max-height:82vh; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.35); }
+  .pp-modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .pp-modal-title { font-size:15px; font-weight:700; color:var(--text); }
+  .pp-modal-close { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:none; color:var(--text-muted); cursor:pointer; border-radius:6px; font-size:16px; transition:color 0.15s, background 0.15s; }
+  .pp-modal-close:hover { color:var(--text); background:var(--border); }
+  .pp-modal-body { flex:1; overflow-y:auto; padding:20px; }
   .kanban-card-btns { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
   .kanban-card-btns a, .kanban-card-btns button { font-size:11px !important; padding:3px 10px !important; border-radius:4px !important; line-height:1.5 !important; }
   .kanban-card-sub { font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:3px; line-height:1.3; }
@@ -189,12 +198,16 @@ function renderKanban() {
         if (p.fid137) btns += '<span>' + p.fid137 + '</span>';
 
         html += '<div class="kanban-card" id="ppCard-' + p.id + '"' +
+          ' style="--col-color:' + color + '"' +
           ' draggable="true"' +
           ' ondragstart="ppCardDragStart(event,' + p.id + ',\'' + col.key + '\')"' +
           ' ondragend="ppCardDragEnd()"' +
           ' ondragover="ppCardDragOver(event,' + p.id + ',\'' + col.key + '\')"' +
           ' ondragleave="ppCardDragLeave(event,' + p.id + ')"' +
           ' ondrop="ppCardDrop(event,' + p.id + ',\'' + col.key + '\')">' +
+          '<button class="kanban-card-open" draggable="false" onclick="event.stopPropagation();ppOpenModal(' + p.id + ')" title="Open">' +
+            '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1h4v4M11 1L5.5 6.5M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8"/></svg>' +
+          '</button>' +
           '<div class="kanban-card-name">' + escapeHtml(p.name || '\u2014') + '</div>' +
           (p.fid54 ? '<div class="kanban-card-sub">'    + escapeHtml(p.fid54) + '</div>' : '') +
           (p.fid55 ? '<div class="kanban-card-detail">Deal Closed: ' + escapeHtml(p.fid55) + '</div>' : '') +
@@ -374,6 +387,40 @@ async function ppRefresh() {
     ppLoading = false;
   }
 }
+
+// ─── MODAL ─────────────────────────────────────────────────────
+function getOrCreateModal() {
+  var el = document.getElementById('ppModalOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ppModalOverlay';
+    el.className = 'pp-modal-overlay';
+    el.innerHTML =
+      '<div class="pp-modal">' +
+        '<div class="pp-modal-header">' +
+          '<span class="pp-modal-title"></span>' +
+          '<button class="pp-modal-close" onclick="ppCloseModal()" title="Close">&#x2715;</button>' +
+        '</div>' +
+        '<div class="pp-modal-body"></div>' +
+      '</div>';
+    el.addEventListener('click', function(e) { if (e.target === el) ppCloseModal(); });
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+window.ppOpenModal = function(id) {
+  var proj = getProj(id);
+  var overlay = getOrCreateModal();
+  overlay.querySelector('.pp-modal-title').textContent = proj ? (proj.name || '\u2014') : '';
+  overlay.querySelector('.pp-modal-body').innerHTML = '';
+  overlay.style.display = 'flex';
+};
+
+window.ppCloseModal = function() {
+  var el = document.getElementById('ppModalOverlay');
+  if (el) el.style.display = 'none';
+};
 
 // ─── GLOBALS ───────────────────────────────────────────────────
 window.ppSwitchSub = switchSub;
