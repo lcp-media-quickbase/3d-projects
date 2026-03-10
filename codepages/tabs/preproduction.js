@@ -502,12 +502,17 @@ function ppRenderScope() {
   var pane = document.getElementById('ppModalPane-scope');
   if (!pane) return;
 
-  var filter = ppScopeFilter.toLowerCase().trim();
+  // Unique product options from loaded data (sorted alpha)
+  var products = [];
+  ppScopeData.forEach(function(r) {
+    var p = r.product || '';
+    if (p && products.indexOf(p) < 0) products.push(p);
+  });
+  products.sort(function(a, b) { return a.localeCompare(b); });
+
   var rows = ppScopeData.filter(function(r) {
-    if (!filter) return true;
-    return SCOPE_COLS.some(function(c) {
-      return String(r[c.key] || '').toLowerCase().indexOf(filter) >= 0;
-    });
+    if (!ppScopeFilter) return true;
+    return r.product === ppScopeFilter;
   });
 
   var col = ppScopeSortState.col;
@@ -545,11 +550,14 @@ function ppRenderScope() {
         }).join('') + '</tr>';
       }).join('');
 
+  var selectOpts = '<option value="">All Products</option>' +
+    products.map(function(p) {
+      return '<option value="' + escapeHtml(p) + '"' + (p === ppScopeFilter ? ' selected' : '') + '>' + escapeHtml(p) + '</option>';
+    }).join('');
+
   pane.innerHTML =
     '<div class="pp-scope-toolbar">' +
-      '<input class="pp-scope-filter" type="text" placeholder="Filter\u2026"' +
-        ' value="' + escapeHtml(ppScopeFilter) + '"' +
-        ' oninput="ppScopeFilterChange(this.value)">' +
+      '<select class="pp-scope-filter" onchange="ppScopeFilterChange(this.value)">' + selectOpts + '</select>' +
       '<span class="pp-scope-count">' + rows.length + ' of ' + ppScopeData.length + ' items</span>' +
     '</div>' +
     '<div class="pp-scope-table-wrap">' +
@@ -570,8 +578,8 @@ window.ppScopeSetSort = function(col) {
   ppRenderScope();
 };
 
-window.ppScopeFilterChange = function(val) {
-  ppScopeFilter = val;
+window.ppScopeFilterChange = function(v) {
+  ppScopeFilter = v;
   ppRenderScope();
 };
 
