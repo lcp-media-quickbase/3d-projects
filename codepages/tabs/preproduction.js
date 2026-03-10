@@ -78,23 +78,30 @@ var ppCSS = `
   .kanban-card-open:hover { color:var(--col-color, var(--accent)); background:var(--border); }
   .kanban-card-name { font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; line-height:1.3; }
   .pp-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:9999; }
-  .pp-modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; width:620px; max-width:92vw; max-height:82vh; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.35); }
-  .pp-modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); flex-shrink:0; }
-  .pp-modal-title { font-size:15px; font-weight:700; color:var(--text); }
-  .pp-modal-close { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:none; color:var(--text-muted); cursor:pointer; border-radius:6px; font-size:16px; transition:color 0.15s, background 0.15s; }
+  .pp-modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; width:680px; max-width:94vw; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.35); }
+  .pp-modal-header { display:flex; align-items:flex-start; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); flex-shrink:0; gap:12px; }
+  .pp-modal-title-wrap { display:flex; flex-direction:column; gap:7px; flex:1; min-width:0; }
+  .pp-modal-title { font-size:15px; font-weight:700; color:var(--text); line-height:1.3; }
+  .pp-modal-header-badges { display:flex; gap:6px; flex-wrap:wrap; }
+  .pp-modal-close { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:none; color:var(--text-muted); cursor:pointer; border-radius:6px; font-size:16px; transition:color 0.15s, background 0.15s; flex-shrink:0; }
   .pp-modal-close:hover { color:var(--text); background:var(--border); }
-  .pp-modal-body { flex:1; overflow-y:auto; padding:0; display:flex; flex-direction:column; }
-  .pp-modal-subheader { padding:12px 20px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .pp-modal-client { font-size:13px; color:var(--text-muted); font-weight:500; flex:1; min-width:120px; }
-  .pp-modal-closedate { font-size:12px; color:var(--text-dim); }
   .pp-badge { display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; letter-spacing:0.02em; }
-  .pp-modal-info { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; border-bottom:1px solid var(--border); }
-  .pp-modal-info-item { display:flex; flex-direction:column; gap:3px; }
+  .pp-modal-body { flex:1; overflow-y:auto; padding:0; display:flex; flex-direction:column; min-height:0; }
+  .pp-modal-info { padding:14px 20px 16px; display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .pp-modal-info-item { display:flex; flex-direction:column; gap:4px; }
   .pp-modal-info-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
   .pp-modal-info-value { font-size:13px; color:var(--text); }
-  .pp-modal-report { flex:1; padding:20px; display:flex; flex-direction:column; gap:12px; }
-  .pp-modal-report-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); }
-  .pp-modal-report-placeholder { display:flex; align-items:center; justify-content:center; flex:1; color:var(--text-dim); font-size:13px; border:1px dashed var(--border); border-radius:8px; min-height:80px; }
+  .pp-modal-edit-input { font-size:13px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:4px 8px; width:100%; font-family:inherit; outline:none; box-sizing:border-box; transition:border-color 0.15s; }
+  .pp-modal-edit-input:focus { border-color:var(--accent); }
+  .pp-modal-select { font-size:13px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:4px 8px; width:100%; font-family:inherit; cursor:pointer; outline:none; transition:border-color 0.15s; }
+  .pp-modal-select:focus { border-color:var(--accent); }
+  .pp-modal-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; flex-shrink:0; }
+  .pp-modal-tab-btn { padding:9px 14px; font-size:12px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:none; font-family:inherit; border-bottom:2px solid transparent; transition:all 0.15s; white-space:nowrap; }
+  .pp-modal-tab-btn:hover { color:var(--text); }
+  .pp-modal-tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .pp-modal-tab-pane { display:none; flex:1; padding:20px; flex-direction:column; gap:12px; min-height:0; }
+  .pp-modal-tab-pane.active { display:flex; }
+  .pp-modal-report-placeholder { display:flex; align-items:center; justify-content:center; flex:1; color:var(--text-dim); font-size:13px; border:1px dashed var(--border); border-radius:8px; min-height:120px; }
   .kanban-card-btns { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
   .kanban-card-btns a, .kanban-card-btns button { font-size:11px !important; padding:3px 10px !important; border-radius:4px !important; line-height:1.5 !important; }
   .kanban-card-sub { font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:3px; line-height:1.3; }
@@ -427,7 +434,10 @@ function getOrCreateModal() {
     el.innerHTML =
       '<div class="pp-modal">' +
         '<div class="pp-modal-header">' +
-          '<span class="pp-modal-title"></span>' +
+          '<div class="pp-modal-title-wrap">' +
+            '<span class="pp-modal-title"></span>' +
+            '<div class="pp-modal-header-badges"></div>' +
+          '</div>' +
           '<button class="pp-modal-close" onclick="ppCloseModal()" title="Close">&#x2715;</button>' +
         '</div>' +
         '<div class="pp-modal-body"></div>' +
@@ -441,31 +451,55 @@ function getOrCreateModal() {
 window.ppOpenModal = function(id) {
   var proj = getProj(id);
   var overlay = getOrCreateModal();
+
   overlay.querySelector('.pp-modal-title').textContent = proj ? (proj.name || '\u2014') : '';
 
-  var typeColor  = (proj && TYPE_COLORS[proj.type])  || 'var(--text-dim)';
-  var stageColor = (proj && STAGE_COLORS[proj.stage]) || 'var(--text-dim)';
-
+  var typeColor  = (proj && TYPE_COLORS[proj.type])   || '#868e96';
+  var stageColor = (proj && STAGE_COLORS[proj.stage]) || '#868e96';
   var typeBadge  = proj && proj.type
     ? '<span class="pp-badge" style="background:' + typeColor + '22;color:' + typeColor + '">' + escapeHtml(proj.type) + '</span>' : '';
   var stageBadge = proj && proj.stage
     ? '<span class="pp-badge" style="background:' + stageColor + '22;color:' + stageColor + '">' + escapeHtml(proj.stage) + '</span>' : '';
-  var closeDate  = proj && proj.fid55 ? '<span class="pp-modal-closedate">Deal Closed: ' + escapeHtml(proj.fid55) + '</span>' : '';
+  overlay.querySelector('.pp-modal-header-badges').innerHTML = typeBadge + stageBadge;
 
   overlay.querySelector('.pp-modal-body').innerHTML =
-    '<div class="pp-modal-subheader">' +
-      '<span class="pp-modal-client">' + escapeHtml((proj && proj.fid54) || '\u2014') + '</span>' +
-      typeBadge + stageBadge + closeDate +
-    '</div>' +
     '<div class="pp-modal-info">' +
-      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Sales Rep</span><span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid62) || '\u2014') + '</span></div>' +
-      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">POD</span><span class="pp-modal-info-value">' + escapeHtml((proj && proj.pod) || '\u2014') + '</span></div>' +
-      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Project #</span><span class="pp-modal-info-value">' + escapeHtml((proj && proj.number) || '\u2014') + '</span></div>' +
+      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Company</span>' +
+        '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid54) || '\u2014') + '</span></div>' +
+      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Deal Closed</span>' +
+        '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid55) || '\u2014') + '</span></div>' +
+      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Project #</span>' +
+        '<input class="pp-modal-edit-input" id="ppEditProjNum" value="' + escapeHtml((proj && proj.number) || '') + '"' +
+        ' onblur="ppSaveField(' + id + ',' + FIELD.PROJECTS.number + ',this.value,\'number\')"' +
+        ' onkeydown="if(event.key===\'Enter\')this.blur()"></div>' +
+      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">POD</span>' +
+        '<select class="pp-modal-select" id="ppEditPod" onchange="ppSaveField(' + id + ',' + FIELD.PROJECTS.pod + ',this.value,\'pod\')">' +
+          '<option value="">Loading\u2026</option>' +
+        '</select></div>' +
+      '<div class="pp-modal-info-item"><span class="pp-modal-info-label">Sales Rep</span>' +
+        '<span class="pp-modal-info-value">' + escapeHtml((proj && proj.fid62) || '\u2014') + '</span></div>' +
     '</div>' +
-    '<div class="pp-modal-report">' +
-      '<div class="pp-modal-report-title">Child Records</div>' +
-      '<div class="pp-modal-report-placeholder">Interactive report coming soon</div>' +
+    '<div class="pp-modal-tabs">' +
+      '<button class="pp-modal-tab-btn active" data-tab="scope"   onclick="ppModalTab(\'scope\')">Project Scope</button>' +
+      '<button class="pp-modal-tab-btn"        data-tab="assets"  onclick="ppModalTab(\'assets\')">Technical Assets</button>' +
+    '</div>' +
+    '<div class="pp-modal-tab-pane active" id="ppModalPane-scope">' +
+      '<div class="pp-modal-report-placeholder">Project Scope report coming soon</div>' +
+    '</div>' +
+    '<div class="pp-modal-tab-pane" id="ppModalPane-assets">' +
+      '<div class="pp-modal-report-placeholder">Technical Assets report coming soon</div>' +
     '</div>';
+
+  // Populate POD dropdown async from cache
+  getCachedPods().then(function(pods) {
+    var sel = document.getElementById('ppEditPod');
+    if (!sel) return;
+    var cur = (proj && proj.pod) || '';
+    sel.innerHTML = '<option value="">— Select POD —</option>' +
+      pods.map(function(p) {
+        return '<option value="' + escapeHtml(p.name) + '"' + (p.name === cur ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>';
+      }).join('');
+  });
 
   overlay.style.display = 'flex';
 };
@@ -473,6 +507,32 @@ window.ppOpenModal = function(id) {
 window.ppCloseModal = function() {
   var el = document.getElementById('ppModalOverlay');
   if (el) el.style.display = 'none';
+};
+
+window.ppModalTab = function(tab) {
+  var overlay = document.getElementById('ppModalOverlay');
+  if (!overlay) return;
+  overlay.querySelectorAll('.pp-modal-tab-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  overlay.querySelectorAll('.pp-modal-tab-pane').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'ppModalPane-' + tab);
+  });
+};
+
+window.ppSaveField = function(projId, fieldId, value, localKey) {
+  var proj = getProj(projId);
+  if (!proj) return;
+  proj[localKey] = value;
+  var rec = {};
+  rec[FIELD.PROJECTS.id] = { value: projId };
+  rec[fieldId]           = { value: value };
+  qbUpsert(TABLES.projects, [rec])
+    .then(function()  { showToast('Saved.', 'success'); })
+    .catch(function(err) {
+      showToast('Failed to save.', 'error');
+      console.error('[PreProd]', err);
+    });
 };
 
 // ─── GLOBALS ───────────────────────────────────────────────────
