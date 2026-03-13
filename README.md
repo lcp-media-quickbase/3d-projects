@@ -31,6 +31,9 @@ dashboard shell (ID 20)  →  reads version.json (@main)  →  this repo
 | Assignments | `bvu4s9te6` | Resource scheduling (Gantt) |
 | Draft Milestones | `bvu4tbpms` | Draft phase milestones |
 | Vacations | `bvu7e3p7c` | Time-off requests |
+| Scope | `btsstpjdq` | Deliverables/assets |
+| Assets | `bvdbvqh8v` | File assets & TAR |
+| Contracts | `btssqjejv` | Contracts storage |
 
 ### Cross-App: Ticket System
 
@@ -46,7 +49,7 @@ dashboard shell (ID 20)  →  reads version.json (@main)  →  this repo
 | Vacations | Live | Request workflow, approval status |
 | Reports | Live | Utilization analytics, capacity, work-type breakdown |
 | Admin | Live | People/Projects/PODs CRUD, overview stats |
-| Pre-Production | Placeholder | — |
+| Pre-Production | Live | Kanban board, scope report, asset/TAR view |
 | Quotes | Placeholder | — |
 | Timesheets | Placeholder | — |
 
