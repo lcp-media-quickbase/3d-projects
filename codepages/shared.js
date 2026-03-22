@@ -29,7 +29,7 @@ var TABLES = {
 };
 
 var FIELD = {
-  ASSIGN: { id:3, person:7, personName:22, personEmail:8, personPod:21,
+  ASSIGN: { id:3, person:7, personName:22, personEmail:0, personPod:21,
     project:8, projectName:20, projectNum:12, projectStage:13, projectPod:21,
     start:17, end:18, hours:9, desc:16, workType:19, draft:20,
     priority:21, weekend:11, tdId:6, color:24 },
@@ -111,7 +111,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.9.0';
+var LCP_VERSION = 'v3.9.1';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
