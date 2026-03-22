@@ -405,7 +405,7 @@ function openEditAssignment(id) {
   if (!a) { showToast('Assignment not found','error'); return; }
   populateSelects();
   document.getElementById('modalTitle').textContent = 'Edit Assignment';
-  document.getElementById('fldRecordId').value = a.id;
+  document.getElementById('fldRecordId').value = a.tdId || a.id;
   document.getElementById('btnDelete').style.display = '';
   document.getElementById('fldPerson').value = a.personKey;
   filterProjects(String(a.projectId));
@@ -430,10 +430,10 @@ async function saveAssignment() {
   record[FIELD.ASSIGN.end] = {value:end};
   record[FIELD.ASSIGN.hours] = {value:parseFloat(document.getElementById('fldHours').value)||8};
   record[FIELD.ASSIGN.desc] = {value:document.getElementById('fldDesc').value};
-  if (recordId) record[FIELD.ASSIGN.id] = {value:parseInt(recordId)};
+  if (recordId) record[FIELD.ASSIGN.tdId] = {value:String(recordId)};
   var isEdit = !!recordId;
   try {
-    await qbUpsert(TABLES.assignments,[record]);
+    await qbUpsert(TABLES.assignments,[record], null, isEdit ? FIELD.ASSIGN.tdId : undefined);
     closeModal();
     showToast(isEdit?'Assignment updated':'Assignment created','success');
     invalidateCache('assignments');
@@ -445,7 +445,7 @@ async function deleteAssignment() {
   var recordId = document.getElementById('fldRecordId').value;
   if (!recordId || !confirm('Delete this assignment?')) return;
   try {
-    await qbDelete(TABLES.assignments, '{'+FIELD.ASSIGN.id+'.EX.'+recordId+'}');
+    await qbDelete(TABLES.assignments, '{'+FIELD.ASSIGN.tdId+'.EX.'+recordId+'}');
     closeModal();
     showToast('Assignment deleted','success');
     invalidateCache('assignments');
@@ -492,7 +492,7 @@ async function onDragEnd() {
       renderTimeline(); _dragState=null; return;
     }
     try {
-      await qbUpsert(TABLES.assignments,[{[FIELD.ASSIGN.id]:{value:a.id},[FIELD.ASSIGN.start]:{value:a.start},[FIELD.ASSIGN.end]:{value:a.end}}]);
+      await qbUpsert(TABLES.assignments,[{[FIELD.ASSIGN.tdId]:{value:String(a.tdId)},[FIELD.ASSIGN.start]:{value:a.start},[FIELD.ASSIGN.end]:{value:a.end}}], null, FIELD.ASSIGN.tdId);
       showToast('Assignment updated','success');
     } catch(e) { a.start=_dragState.origStart; a.end=_dragState.origEnd; showToast('Error: '+e.message,'error'); }
     _dragJustFinished = true;

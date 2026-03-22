@@ -111,7 +111,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.9.2';
+var LCP_VERSION = 'v3.9.3';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -609,7 +609,7 @@ async function getCachedAssignments(startDate, endDate, force) {
   var vStart = startDate;
   var vEnd = endDate;
   var records = await qbQuery(TABLES.assignments,
-    [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
+    [FIELD.ASSIGN.id, FIELD.ASSIGN.tdId, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
      FIELD.ASSIGN.project, FIELD.ASSIGN.projectName,
      FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours, FIELD.ASSIGN.desc,
      FIELD.ASSIGN.weekend],
@@ -618,7 +618,7 @@ async function getCachedAssignments(startDate, endDate, force) {
 
   c.data = records.records.map(function(r) {
     return {
-      id: val(r,FIELD.ASSIGN.id), personKey: String(val(r,FIELD.ASSIGN.person)),
+      id: val(r,FIELD.ASSIGN.id), tdId: val(r,FIELD.ASSIGN.tdId), personKey: String(val(r,FIELD.ASSIGN.person)),
       personName: val(r,FIELD.ASSIGN.personName), personPod: val(r,FIELD.ASSIGN.personPod),
       projectId: val(r,FIELD.ASSIGN.project), projectName: val(r,FIELD.ASSIGN.projectName),
       projectNum: null, start: val(r,FIELD.ASSIGN.start),
