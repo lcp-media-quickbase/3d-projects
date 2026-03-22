@@ -123,8 +123,12 @@ async function loadQuotes() {
 }
 
 async function loadLineItems(quoteId) {
-  if (qLineItems[quoteId]) return qLineItems[quoteId];
-  var rows = await qbFetch(LINE_ITEM_TABLE, [3,6,10,11,12,13,14,15], '{6.EX.' + quoteId + '}', 100);
+  quoteId = parseInt(quoteId);
+  console.log('[Quotes] Loading line items for quote', quoteId);
+  if (qLineItems[quoteId]) { console.log('[Quotes] Returning cached', qLineItems[quoteId].length, 'items'); return qLineItems[quoteId]; }
+  var where = '{6.EX.' + quoteId + '}';
+  console.log('[Quotes] Query:', where);
+  var rows = await qbFetch(LINE_ITEM_TABLE, [3,6,10,11,12,13,14,15], where, 100);
   var items = rows.map(function(r) {
     return {
       id: r[3] ? r[3].value : 0,
@@ -136,6 +140,7 @@ async function loadLineItems(quoteId) {
       total: r[15] ? r[15].value : 0
     };
   });
+  console.log('[Quotes] Loaded', items.length, 'items for quote', quoteId);
   qLineItems[quoteId] = items;
   return items;
 }
