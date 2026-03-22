@@ -17,7 +17,7 @@ if (typeof window !== 'undefined' && window.location.hostname.endsWith('.quickba
 }
 var QB_APP = 'bu8tkk77g';
 var TABLES = {
-  assignments: 'bvu4s9te6',
+  assignments: 'bvd234pi8',
   people: 'bu8ttwq2f',
   projects: 'bvaitp9x5',
   milestones: 'bvu4tbpms',
@@ -29,12 +29,12 @@ var TABLES = {
 };
 
 var FIELD = {
-  ASSIGN: { id:3, person:6, personName:7, personEmail:8, personPod:9,
-    project:10, projectName:11, projectNum:12, projectStage:13, projectPod:14,
-    start:15, end:16, hours:17, desc:18, workType:19, draft:20,
-    priority:21, weekend:22, tdId:23, color:24 },
+  ASSIGN: { id:3, person:7, personName:22, personEmail:8, personPod:21,
+    project:8, projectName:20, projectNum:12, projectStage:13, projectPod:21,
+    start:17, end:18, hours:9, desc:16, workType:19, draft:20,
+    priority:21, weekend:11, tdId:6, color:24 },
   PEOPLE: { id:3, name:7, email:8, role:11, active:19, podName:22, tdId:23, partTime:24 },
-  PROJECTS: { id:3, name:19, reviewStudio:20, number:23, folder:24, type:26, stage:27, pod:82, deal:52, opportunity:67, fid36:36, fid49:49, fid54:54, fid55:55, fid62:62, fid85:85, teamChannel:91, earliestBooking:99, latestBooking:100, age:109, fid116:116, fid118:118, techAssets:119, rfpDate:120, sendToProd:141, fid137:137 },
+  PROJECTS: { id:3, name:19, reviewStudio:20, number:23, folder:24, type:26, stage:27, pod:82, deal:52, opportunity:67, fid36:36, fid49:49, fid54:54, fid55:55, fid62:62, fid85:85, teamChannel:91, earliestBooking:99, latestBooking:100, age:109, fid116:116, fid118:118, techAssets:119, rfpDate:120, sendToProd:141, fid137:137, tdProjectId:94 },
   MILESTONES: { id:3, project:6, projectName:7, projectNum:8, name:10, phase:11, start:12, end:13 },
   PODS: { id:3, name:6, tdId:11 },
   SCOPE:  { id:3, assetName:6, totalValue:26, pricePer:27, quantity:25, stillsCount:28, panosCount:29, product:45, projectRef:66 },
@@ -111,7 +111,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.8.1';
+var LCP_VERSION = 'v3.9.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -317,12 +317,13 @@ async function loadProjects(excludeComplete=true) {
   const where = excludeComplete ? `{${FIELD.PROJECTS.stage}.XEX.'Complete'}` : null;
   const rows = await qbQueryAll(TABLES.projects,
     [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.number,
-     FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod],
+     FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod, FIELD.PROJECTS.tdProjectId],
     where);
   return rows.map(r => ({
     id: val(r, FIELD.PROJECTS.id), name: val(r, FIELD.PROJECTS.name),
     number: val(r, FIELD.PROJECTS.number), type: val(r, FIELD.PROJECTS.type),
-    stage: val(r, FIELD.PROJECTS.stage), pod: val(r, FIELD.PROJECTS.pod)
+    stage: val(r, FIELD.PROJECTS.stage), pod: val(r, FIELD.PROJECTS.pod),
+    tdProjectId: val(r, FIELD.PROJECTS.tdProjectId)
   })).sort((a,b) => (b.number||0) - (a.number||0));
 }
 
@@ -609,9 +610,9 @@ async function getCachedAssignments(startDate, endDate, force) {
   var vEnd = endDate;
   var records = await qbQuery(TABLES.assignments,
     [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
-     FIELD.ASSIGN.project, FIELD.ASSIGN.projectName, FIELD.ASSIGN.projectNum,
+     FIELD.ASSIGN.project, FIELD.ASSIGN.projectName,
      FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours, FIELD.ASSIGN.desc,
-     FIELD.ASSIGN.workType, FIELD.ASSIGN.draft, FIELD.ASSIGN.priority, FIELD.ASSIGN.weekend],
+     FIELD.ASSIGN.weekend],
     '{' + FIELD.ASSIGN.end + '.OAF.' + vStart + '}AND{' + FIELD.ASSIGN.start + '.BF.' + vEnd + '}',
     [{ fieldId: FIELD.ASSIGN.start, order: 'ASC' }], 2000);
 
@@ -620,10 +621,10 @@ async function getCachedAssignments(startDate, endDate, force) {
       id: val(r,FIELD.ASSIGN.id), personKey: String(val(r,FIELD.ASSIGN.person)),
       personName: val(r,FIELD.ASSIGN.personName), personPod: val(r,FIELD.ASSIGN.personPod),
       projectId: val(r,FIELD.ASSIGN.project), projectName: val(r,FIELD.ASSIGN.projectName),
-      projectNum: val(r,FIELD.ASSIGN.projectNum), start: val(r,FIELD.ASSIGN.start),
+      projectNum: null, start: val(r,FIELD.ASSIGN.start),
       end: val(r,FIELD.ASSIGN.end), hours: val(r,FIELD.ASSIGN.hours),
-      desc: val(r,FIELD.ASSIGN.desc), workType: val(r,FIELD.ASSIGN.workType),
-      draft: val(r,FIELD.ASSIGN.draft), priority: val(r,FIELD.ASSIGN.priority),
+      desc: val(r,FIELD.ASSIGN.desc), workType: '',
+      draft: '', priority: '',
       weekend: val(r,FIELD.ASSIGN.weekend)
     };
   });

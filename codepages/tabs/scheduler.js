@@ -156,14 +156,6 @@ function buildHTML() {
           <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="fldStart"></div>
           <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="fldEnd"></div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Hours/Day</label><input class="form-input" type="number" id="fldHours" value="8" min="1" max="24" step="0.5"></div>
-          <div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="fldPriority"><option value="">—</option>${PRIORITIES.map(function(p){return '<option>'+p+'</option>';}).join('')}</select></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Work Type</label><select class="form-select" id="fldWorkType"><option value="">—</option>${WORK_TYPES.map(function(w){return '<option>'+w+'</option>';}).join('')}</select></div>
-          <div class="form-group"><label class="form-label">Draft Phase</label><select class="form-select" id="fldDraft"><option value="">—</option>${DRAFT_PHASES.map(function(d){return '<option>'+d+'</option>';}).join('')}</select></div>
-        </div>
         <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="fldDesc" rows="2"></textarea></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px">
           <button class="btn btn-danger" id="btnDelete" onclick="schedDeleteAssignment()" style="display:none">Delete</button>
@@ -296,7 +288,7 @@ function renderTimeline() {
           var color = projectColor(a.projectId);
           var label = (a.projectNum?a.projectNum+' ':'') + (a.projectName||'');
           var desc = a.desc ? ' — '+a.desc : '';
-          var pri = a.priority==='High'?'high':'';
+          var pri = '';
           var we = a.weekend?'weekend-bar':'';
           rowsHtml += '<div class="gantt-bar '+pri+' '+we+'" onclick="schedEditAssignment('+a.id+')" onmouseenter="schedShowTip(event,'+a.id+')" onmouseleave="schedHideTip()" style="left:'+left+'px;width:'+width+'px;background:'+color+';cursor:pointer">' +
             '<div class="bar-handle bar-handle-l" onmousedown="schedBarMouseDown(event,'+a.id+',\'left\')"></div>' +
@@ -332,8 +324,7 @@ function showTip(event, id) {
     '<div class="tip-row">'+escapeHtml(a.personName)+' ('+escapeHtml(a.personPod)+')</div>'+
     '<div class="tip-row">'+a.start+' → '+a.end+'</div>'+
     (a.hours?'<div class="tip-row">'+a.hours+'h/day</div>':'')+
-    (a.workType?'<div class="tip-row">'+escapeHtml(a.workType)+(a.draft?' · '+escapeHtml(a.draft):'')+'</div>':'')+
-    (a.priority?'<div class="tip-row">Priority: '+escapeHtml(a.priority)+'</div>':'')+
+
     (a.desc?'<div class="tip-row" style="margin-top:4px;font-style:italic">'+escapeHtml(a.desc)+'</div>':'');
   tip.classList.add('visible');
   tip.style.left = Math.min(event.clientX+12, window.innerWidth-290)+'px';
@@ -380,15 +371,15 @@ function filterProjects(keepValue) {
   var html = '<option value="">Select project...</option>';
   if (pod && podProjects.length) {
     html += '<optgroup label="'+escapeHtml(pod)+' Projects">';
-    html += podProjects.map(function(p){return '<option value="'+p.id+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
+    html += podProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
     html += '</optgroup>';
     if (otherProjects.length) {
       html += '<optgroup label="Other Projects">';
-      html += otherProjects.map(function(p){return '<option value="'+p.id+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
+      html += otherProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
       html += '</optgroup>';
     }
   } else {
-    html += sProjects.map(function(p){return '<option value="'+p.id+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
+    html += sProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
   }
   pj.innerHTML = html;
   if (prev) pj.value = prev;
@@ -405,9 +396,6 @@ function openNewAssignment(prefillPerson, prefillDate) {
   document.getElementById('fldEnd').value = prefillDate ? formatDate(addDays(parseDate(prefillDate),4)) : formatDate(addDays(new Date(),4));
   document.getElementById('fldHours').value = 8;
   document.getElementById('fldDesc').value = '';
-  document.getElementById('fldWorkType').value = '';
-  document.getElementById('fldDraft').value = '';
-  document.getElementById('fldPriority').value = '';
   document.getElementById('modalOverlay').classList.add('visible');
 }
 
@@ -425,9 +413,6 @@ function openEditAssignment(id) {
   document.getElementById('fldEnd').value = a.end;
   document.getElementById('fldHours').value = a.hours || 8;
   document.getElementById('fldDesc').value = a.desc || '';
-  document.getElementById('fldWorkType').value = a.workType || '';
-  document.getElementById('fldDraft').value = a.draft || '';
-  document.getElementById('fldPriority').value = a.priority || '';
   document.getElementById('modalOverlay').classList.add('visible');
 }
 
@@ -439,15 +424,12 @@ async function saveAssignment() {
   if(!person||!project||!start||!end) { showToast('Person, Project, Start and End are required','warning'); return; }
   var recordId = document.getElementById('fldRecordId').value;
   var record = {};
-  record[FIELD.ASSIGN.person] = {value:person};
-  record[FIELD.ASSIGN.project] = {value:parseInt(project)};
+  record[FIELD.ASSIGN.person] = {value:String(person)};
+  record[FIELD.ASSIGN.project] = {value:String(project)};
   record[FIELD.ASSIGN.start] = {value:start};
   record[FIELD.ASSIGN.end] = {value:end};
   record[FIELD.ASSIGN.hours] = {value:parseFloat(document.getElementById('fldHours').value)||8};
   record[FIELD.ASSIGN.desc] = {value:document.getElementById('fldDesc').value};
-  record[FIELD.ASSIGN.workType] = {value:document.getElementById('fldWorkType').value};
-  record[FIELD.ASSIGN.draft] = {value:document.getElementById('fldDraft').value};
-  record[FIELD.ASSIGN.priority] = {value:document.getElementById('fldPriority').value};
   if (recordId) record[FIELD.ASSIGN.id] = {value:parseInt(recordId)};
   var isEdit = !!recordId;
   try {
