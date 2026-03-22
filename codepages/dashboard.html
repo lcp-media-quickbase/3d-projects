@@ -187,6 +187,7 @@ window.buildDashboard = buildDashboard;
   // Resolve user identity in background
   if (typeof resolveCurrentUser === 'function') resolveCurrentUser();
   if (typeof loadQBUsers === 'function') loadQBUsers();
+  if (typeof renderTestBanner === 'function') renderTestBanner();
 
   // Handle back/forward browser navigation
   window.addEventListener('hashchange', function() {
