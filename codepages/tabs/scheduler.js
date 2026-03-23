@@ -207,9 +207,7 @@ function renderPodFilters() {
 }
 
 function renderResourcePanel() {
-  // Remove old milestone label (re-added in renderTimeline)
-  var oldMsLabel = document.querySelector('.milestone-label');
-  if (oldMsLabel) oldMsLabel.remove();
+
   var groups = getGroupedPeople();
   var html = '';
   for (var pod in groups) {
@@ -223,6 +221,11 @@ function renderResourcePanel() {
     html += '<span class="pod-count">('+members.length+')</span>';
     html += '<span class="pod-collapse">'+(collapsed?'▶':'▼')+'</span></div>';
     if (!collapsed) {
+      // Milestone label for this pod
+      var podMs = sMilestones.filter(function(ms) { return ms.pod === pod; });
+      if (podMs.length > 0) {
+        html += '<div class="milestone-label" style="height:24px;display:flex;align-items:center;padding:0 14px;font-size:9px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border)">Milestones (' + podMs.length + ')</div>';
+      }
       members.forEach(function(m) {
         var initials = m.name.split(' ').map(function(n){return n[0]||'';}).join('').substring(0,2);
         html += '<div class="person-row"><div class="person-avatar" style="background:'+c+'22;color:'+c+'">'+initials+'</div><span>'+escapeHtml(m.name)+'</span></div>';
@@ -281,60 +284,36 @@ function renderTimeline() {
     nowLine = '<div class="now-line" style="left:' + nowX + 'px"></div>';
   }
 
-  // ─── MILESTONE ROWS ─────────────────────────────────
   var rowsHtml = '';
-  if (sMilestones.length > 0) {
-    // Group milestones by project
-    var msByProject = {};
-    sMilestones.forEach(function(ms) {
-      var key = ms.projectName || 'Project ' + ms.projectId;
-      if (!msByProject[key]) msByProject[key] = [];
-      msByProject[key].push(ms);
-    });
-
-    // Milestone label row (resource panel side)
-    var msLabelHtml = '<div class="milestone-label">Milestones (' + sMilestones.length + ')</div>';
-
-    // Render a single row with all milestone bars
-    rowsHtml += '<div class="milestone-row" style="width:' + totalW + 'px">';
-    sMilestones.forEach(function(ms) {
-      var msStart = parseDate(ms.start), msEnd = parseDate(ms.end);
-      if (!msStart || !msEnd) return;
-      var s = Math.max(0, Math.round((msStart - viewStart) / 86400000));
-      var e = Math.min(viewDays - 1, Math.round((msEnd - viewStart) / 86400000));
-      if (e < 0 || s >= viewDays) return;
-      var left = s * cellW, width = Math.max((e - s + 1) * cellW - 2, 20);
-
-      // Color by phase name
-      var msName = (ms.name || '').toLowerCase();
-      var color = '#5b8def'; // default blue
-      if (msName.indexOf('draft 1') !== -1 || msName === 'd1') color = '#5b8def';
-      else if (msName.indexOf('draft 2') !== -1 || msName === 'd2') color = '#27ae60';
-      else if (msName.indexOf('draft 3') !== -1 || msName === 'd3') color = '#e67e22';
-      else if (msName.indexOf('draft 4') !== -1 || msName === 'd4') color = '#e74c3c';
-      else if (msName.indexOf('final') !== -1) color = '#8e44ad';
-      else if (msName.indexOf('grey') !== -1 || msName.indexOf('gray') !== -1) color = '#7f8c8d';
-
-      var label = ms.name + ' — ' + (ms.projectName || '').replace(/^\d+\s*/, '');
-      var tip = ms.name + '\n' + (ms.projectName || '') + '\n' + ms.start + ' → ' + ms.end;
-      rowsHtml += '<div class="milestone-bar" style="left:' + left + 'px;width:' + width + 'px;background:' + color + '" title="' + escapeHtml(tip) + '">' + escapeHtml(label) + '</div>';
-    });
-    rowsHtml += '</div>';
-
-    // Inject milestone label into resource panel
-    var rl = document.getElementById('resourceList');
-    if (rl) {
-      var existingLabel = rl.querySelector('.milestone-label');
-      if (!existingLabel) {
-        rl.insertAdjacentHTML('afterbegin', msLabelHtml);
-      }
-    }
-  }
-
   for (var pod in groups) {
     var members = groups[pod];
     rowsHtml += '<div class="timeline-row pod-header-row" style="width:'+totalW+'px"></div>';
     if (!collapsedPods.has(pod)) {
+      // Milestone row for this pod
+      var podMilestones = sMilestones.filter(function(ms) { return ms.pod === pod; });
+      if (podMilestones.length > 0) {
+        rowsHtml += '<div class="milestone-row" style="width:' + totalW + 'px">';
+        podMilestones.forEach(function(ms) {
+          var msStart = parseDate(ms.start), msEnd = parseDate(ms.end);
+          if (!msStart || !msEnd) return;
+          var s = Math.max(0, Math.round((msStart - viewStart) / 86400000));
+          var e = Math.min(viewDays - 1, Math.round((msEnd - viewStart) / 86400000));
+          if (e < 0 || s >= viewDays) return;
+          var left = s * cellW, width = Math.max((e - s + 1) * cellW - 2, 20);
+          var msName = (ms.name || '').toLowerCase();
+          var color = '#5b8def';
+          if (msName.indexOf('draft 1') !== -1 || msName === 'd1') color = '#5b8def';
+          else if (msName.indexOf('draft 2') !== -1 || msName === 'd2') color = '#27ae60';
+          else if (msName.indexOf('draft 3') !== -1 || msName === 'd3') color = '#e67e22';
+          else if (msName.indexOf('draft 4') !== -1 || msName === 'd4') color = '#e74c3c';
+          else if (msName.indexOf('final') !== -1) color = '#8e44ad';
+          else if (msName.indexOf('grey') !== -1 || msName.indexOf('gray') !== -1) color = '#7f8c8d';
+          var label = ms.name + ' — ' + (ms.projectName || '').replace(/^\d+\s*/, '');
+          var tip = ms.name + '\n' + (ms.projectName || '') + '\n' + ms.start + ' → ' + ms.end;
+          rowsHtml += '<div class="milestone-bar" style="left:' + left + 'px;width:' + width + 'px;background:' + color + '" title="' + escapeHtml(tip) + '">' + escapeHtml(label) + '</div>';
+        });
+        rowsHtml += '</div>';
+      }
       members.forEach(function(m) {
         rowsHtml += '<div class="timeline-row" data-person="'+m.tdId+'" onclick="schedTimelineClick(event,\''+m.tdId+'\')" style="width:'+totalW+'px">';
         sAssignments.filter(function(a) { return a.personKey === String(m.tdId); }).forEach(function(a) {
@@ -828,6 +807,72 @@ function closeProjectDrawer() {
 
 window.openProjectDetail = openProjectDetail;
 window.closeProjectDrawer = closeProjectDrawer;
+
+// ─── NEW MILESTONE ──────────────────────────────────
+function newMilestone() {
+  // Build a simple modal for creating a milestone
+  var overlay = document.getElementById('modalOverlay');
+  var content = document.querySelector('.modal-content');
+  if (!overlay || !content) return;
+
+  content.innerHTML =
+    '<div id="modalTitle" style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--text)">New Milestone</div>' +
+    '<div class="form-group"><label class="form-label">Milestone Name</label><input class="form-input" type="text" id="fldMsName" placeholder="e.g. Draft 1, Draft 2, Final"></div>' +
+    '<div class="form-group"><label class="form-label">Project</label><select class="form-select" id="fldMsProject"></select></div>' +
+    '<div class="form-row">' +
+      '<div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="fldMsStart"></div>' +
+      '<div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="fldMsEnd"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="fldMsDesc" rows="2"></textarea></div>' +
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">' +
+      '<button class="btn" onclick="schedCloseModal()">Cancel</button>' +
+      '<button class="btn btn-primary" onclick="schedSaveMilestone()">Save Milestone</button>' +
+    '</div>';
+
+  // Populate project dropdown
+  var pj = document.getElementById('fldMsProject');
+  pj.innerHTML = '<option value="">Select project...</option>' +
+    sProjects.map(function(p) {
+      return '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>';
+    }).join('');
+
+  document.getElementById('fldMsStart').value = formatDate(new Date());
+  document.getElementById('fldMsEnd').value = formatDate(addDays(new Date(), 14));
+  overlay.classList.add('visible');
+}
+
+async function saveMilestone() {
+  var name = document.getElementById('fldMsName').value;
+  var projectId = document.getElementById('fldMsProject').value;
+  var start = document.getElementById('fldMsStart').value;
+  var end = document.getElementById('fldMsEnd').value;
+  if (!name || !projectId || !start || !end) {
+    showToast('Name, Project, Start and End are required', 'warning');
+    return;
+  }
+
+  // Find project to get pod and name
+  var proj = sProjects.find(function(p) { return String(p.id) === String(projectId); });
+
+  try {
+    await qbUpsert(TABLES.milestones, [{
+      7: {value: name},
+      8: {value: proj ? (proj.tdProjectId || '') : ''},
+      9: {value: start},
+      10: {value: end},
+      12: {value: proj ? proj.name : ''},
+      13: {value: proj ? proj.pod : ''}
+    }]);
+    closeModal();
+    showToast('Milestone created', 'success');
+    await refreshData();
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+window.schedNewMilestone = newMilestone;
+window.schedSaveMilestone = saveMilestone;
 
 registerTab('scheduler', {
   icon: '📅',
