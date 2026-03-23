@@ -21,6 +21,7 @@ var TABLES = {
   people: 'bu8ttwq2f',
   projects: 'bvaitp9x5',
   milestones: 'bvd3ff8t6',
+  ptoBalances: 'bvwnmj5i8',
   pods: 'bu8tt69gx',
   vacations: 'bvu7e3p7c',
   scope: 'btsstpjdq',
@@ -40,6 +41,7 @@ var FIELD = {
   SCOPE:  { id:3, assetName:6, totalValue:26, pricePer:27, quantity:25, stillsCount:28, panosCount:29, product:45, projectRef:66 },
   ASSETS:     { id:3, received:7, notes:9, fileType:11, projectRef:12, projectName:13, hidden:18, fileLink:44, assetTypes:46, clientName:33, projectStage:35, progress:49 },
   CONTRACTS:  { id:3, pdf:80 },
+  PTO: { id:3, year:6, allocation:7, used:8, pending:9, notes:10, personTdId:11, personName:12 },
   VACATION: { id:3, person:6, personName:7, personEmail:8, personPod:9, personTdId:10, start:11, end:12, type:13, status:14, notes:15 }
 };
 
@@ -111,7 +113,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.15.0';
+var LCP_VERSION = 'v3.16.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────

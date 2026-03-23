@@ -9,6 +9,7 @@ var vBookings = [];
 var vMonthStart = null;
 var vCollapsedPods = new Set();
 var vSearch = '';
+var vPtoBalances = {};
 
 var EXCLUDED_PODS = ['Polish office', 'TourBuilder'];
 
@@ -126,6 +127,25 @@ async function loadVacData() {
     };
   });
 
+  // Load PTO balances (current year)
+  try {
+    var ptoResult = await qbQuery(TABLES.ptoBalances,
+      [FIELD.PTO.id, FIELD.PTO.year, FIELD.PTO.allocation, FIELD.PTO.used,
+       FIELD.PTO.pending, FIELD.PTO.personTdId, FIELD.PTO.personName],
+      '{' + FIELD.PTO.year + '.EX.2026}',
+      [{fieldId: FIELD.PTO.personName, order: 'ASC'}], 100);
+    vPtoBalances = {};
+    (ptoResult.records || []).forEach(function(r) {
+      var tdId = String(val(r, FIELD.PTO.personTdId));
+      vPtoBalances[tdId] = {
+        name: val(r, FIELD.PTO.personName),
+        allocation: parseFloat(val(r, FIELD.PTO.allocation)) || 160,
+        used: parseFloat(val(r, FIELD.PTO.used)) || 0,
+        pending: parseFloat(val(r, FIELD.PTO.pending)) || 0
+      };
+    });
+  } catch(e) { console.warn('[Vacations] Could not load PTO balances:', e); }
+
   // Load bookings for this month (for available hours calc)
   var bookResult = await qbQuery(TABLES.assignments,
     [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours],
@@ -186,7 +206,7 @@ function renderHeader() {
     var we = (dow === 0 || dow === 6) ? ' style="opacity:0.4"' : '';
     html += '<th' + (todayCls || we) + '>' + d + '</th>';
   }
-  html += '<th>Avail</th></tr>';
+  html += '<th>PTO Used</th><th>PTO Left</th></tr>';
   el.innerHTML = html;
 }
 
@@ -222,7 +242,7 @@ function renderGrid() {
     var collapsed = vCollapsedPods.has(pod);
 
     html += '<tr class="vac-pod-row" onclick="vacTogglePod(\'' + pod.replace(/'/g, "\\'") + '\')">' +
-      '<td colspan="' + (days + 2) + '"><span class="vac-pod-dot" style="background:' + c + '"></span>' +
+      '<td colspan="' + (days + 3) + '"><span class="vac-pod-dot" style="background:' + c + '"></span>' +
       escapeHtml(pod) + ' (' + members.length + ')' +
       '<span style="font-size:10px;color:var(--text-dim);margin-left:4px">' + (collapsed ? '▶' : '▼') + '</span></td></tr>';
 
@@ -268,9 +288,18 @@ function renderGrid() {
       }
 
       totalVacDays += vacDays;
-      var availHours = personTarget - (vacDays * 8);
-      var availCls = availHours >= personTarget ? 'vac-avail-full' : availHours >= personTarget * 0.8 ? 'vac-avail-partial' : 'vac-avail-none';
-      html += '<td class="vac-avail ' + availCls + '">' + availHours + 'h</td></tr>';
+      // PTO balance from QB table
+      var pto = vPtoBalances[String(p.tdId)] || null;
+      if (pto) {
+        var remaining = pto.allocation - pto.used - pto.pending;
+        var usedPct = pto.allocation > 0 ? (pto.used / pto.allocation) : 0;
+        var usedCls = usedPct >= 1 ? 'vac-avail-none' : usedPct >= 0.7 ? 'vac-avail-partial' : 'vac-avail-full';
+        var remCls = remaining <= 0 ? 'vac-avail-none' : remaining <= 40 ? 'vac-avail-partial' : 'vac-avail-full';
+        html += '<td class="vac-avail ' + usedCls + '">' + pto.used + (pto.pending ? '+' + pto.pending : '') + 'h</td>';
+        html += '<td class="vac-avail ' + remCls + '">' + remaining + 'h</td></tr>';
+      } else {
+        html += '<td class="vac-avail" style="opacity:0.3">—</td><td class="vac-avail" style="opacity:0.3">—</td></tr>';
+      }
     });
   }
 
@@ -298,6 +327,26 @@ function renderGrid() {
       '<div class="vac-kpi"><div class="vac-kpi-label">Pending Requests</div><div class="vac-kpi-value" style="color:var(--warning)">' + pendingSet.size + '</div></div>' +
       '<div class="vac-kpi"><div class="vac-kpi-label">Vacation Days This Month</div><div class="vac-kpi-value">' + totalVacDays + '</div></div>' +
       '<div class="vac-kpi"><div class="vac-kpi-label">Work Days in Month</div><div class="vac-kpi-value">' + totalWorkDays + '</div></div>';
+
+    // PTO summary
+    var totalAlloc = 0, totalUsed = 0, totalPending = 0, ptoCount = 0;
+    for (var k in vPtoBalances) {
+      var b = vPtoBalances[k];
+      totalAlloc += b.allocation;
+      totalUsed += b.used;
+      totalPending += b.pending;
+      ptoCount++;
+    }
+    var lowPto = 0;
+    for (var k2 in vPtoBalances) {
+      var b2 = vPtoBalances[k2];
+      if ((b2.allocation - b2.used - b2.pending) <= 24) lowPto++;
+    }
+    if (ptoCount > 0) {
+      kpiEl.innerHTML +=
+        '<div class="vac-kpi"><div class="vac-kpi-label">Team PTO Used (2026)</div><div class="vac-kpi-value" style="color:var(--accent)">' + totalUsed + 'h</div></div>' +
+        '<div class="vac-kpi"><div class="vac-kpi-label">Low PTO (≤24h left)</div><div class="vac-kpi-value" style="color:' + (lowPto > 0 ? 'var(--danger)' : 'var(--success)') + '">' + lowPto + '</div></div>';
+    }
   }
 }
 
@@ -452,7 +501,7 @@ registerTab('vacations', {
     window.onAppSearch = function(val) { vSearch = val.trim(); renderGrid(); };
     updateDateDisplay();
     renderHeader();
-    document.getElementById('vacTbody').innerHTML = '<tr><td colspan="33" style="text-align:center;color:var(--text-dim);padding:40px">Loading vacations...</td></tr>';
+    document.getElementById('vacTbody').innerHTML = '<tr><td colspan="35" style="text-align:center;color:var(--text-dim);padding:40px">Loading vacations...</td></tr>';
     await loadVacData();
     renderGrid();
   }
