@@ -372,15 +372,15 @@ function filterProjects(keepValue) {
   var html = '<option value="">Select project...</option>';
   if (pod && podProjects.length) {
     html += '<optgroup label="'+escapeHtml(pod)+' Projects">';
-    html += podProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
+    html += podProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+ escapeHtml(p.name)+'</option>';}).join('');
     html += '</optgroup>';
     if (otherProjects.length) {
       html += '<optgroup label="Other Projects">';
-      html += otherProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
+      html += otherProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+ escapeHtml(p.name)+'</option>';}).join('');
       html += '</optgroup>';
     }
   } else {
-    html += sProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+(p.number?p.number+' ':'')+escapeHtml(p.name)+'</option>';}).join('');
+    html += sProjects.map(function(p){return '<option value="'+(p.tdProjectId||p.id)+'">'+ escapeHtml(p.name)+'</option>';}).join('');
   }
   pj.innerHTML = html;
   if (prev) pj.value = prev;
