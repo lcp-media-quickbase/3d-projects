@@ -134,6 +134,7 @@ function buildHTML() {
           <button class="btn" id="btnMonth" onclick="schedSetView('month')">Month</button>
         </div>
         <button class="btn btn-primary" onclick="schedNewAssignment()">+ Booking</button>
+        <button class="btn" onclick="schedNewMilestone()" style="font-size:11px">+ Milestone</button>
       </div>
     </div>
     <div class="scheduler-layout">
