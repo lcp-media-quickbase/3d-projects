@@ -8,6 +8,7 @@ var fBookings = [];
 var fProjects = [];
 var fScopeByDeal = {};
 var fView = 'artists';
+var fSearch = '';
 
 var EXCLUDED_PODS = ['Polish office', 'TourBuilder'];
 
@@ -111,7 +112,14 @@ function renderArtists() {
   });
 
   var rows = fPeople
-    .filter(function(p) { return EXCLUDED_PODS.indexOf(p.pod) === -1; })
+    .filter(function(p) {
+      if (EXCLUDED_PODS.indexOf(p.pod) !== -1) return false;
+      if (fSearch) {
+        var s = fSearch.toLowerCase();
+        return (p.name && p.name.toLowerCase().indexOf(s) !== -1) || (p.pod && p.pod.toLowerCase().indexOf(s) !== -1);
+      }
+      return true;
+    })
     .map(function(p) {
       var data = byPerson[String(p.tdId)] || {hours: 0};
       return { name: p.name, pod: p.pod, rate: p.hourlyRate, hours: data.hours, cost: data.hours * (p.hourlyRate || 0) };
@@ -209,6 +217,11 @@ function renderBudgets() {
     });
   }
 
+  if (fSearch) {
+    var s = fSearch.toLowerCase();
+    projRows = projRows.filter(function(p) { return p.name.toLowerCase().indexOf(s) !== -1; });
+  }
+
   projRows.sort(function(a, b) {
     // Sort: projects with deals first (by profit margin asc = worst first), then no-deal by cost desc
     if (a.dealCost && !b.dealCost) return -1;
@@ -280,6 +293,7 @@ registerTab('finance', {
     document.getElementById('tab-finance').innerHTML = buildHTML();
   },
   onActivate: async function() {
+    window.onAppSearch = function(val) { fSearch = val.trim(); if (fView === 'artists') renderArtists(); else renderBudgets(); };
     var dfEl = document.getElementById('finDateFilter');
     if (dfEl && !dfEl.innerHTML) {
       dfEl.innerHTML = buildDateFilter('fin', function() {

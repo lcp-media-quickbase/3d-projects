@@ -13,6 +13,7 @@ var ppDragSrcCol = null; // source column key
 // Scope report state
 var ppScopeData   = [];
 var ppScopeSortState = { col: 'product', dir: 'asc' };
+var ppSearchFilter = '';
 var ppScopeFilter = '';
 
 var SCOPE_COLS = [
@@ -1698,6 +1699,7 @@ registerTab('preproduction', {
     ppRefresh();
   },
   onActivate: function() {
+    window.onAppSearch = function(val) { ppSearchFilter = val.trim(); ppRender(); };
     if (ppProjects.length === 0 && !ppLoading) ppRefresh();
   }
 });

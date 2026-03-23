@@ -4,6 +4,7 @@
 (function() {
 
 var rPeople = [], rAssignments = [];
+var rptSearch = '';
 var rangeStart = addDays(getMonday(new Date()), -7);
 var rangeEnd = addDays(getMonday(new Date()), 13);
 
@@ -199,6 +200,7 @@ registerTab('reports', {
     document.getElementById('tab-reports').innerHTML = buildHTML();
   },
   onActivate: async function() {
+    window.onAppSearch = function(val) { rptSearch = val.trim(); rptRender(); };
     document.getElementById('rptBody').innerHTML='<div class="tab-loading"><div class="spinner"></div>Calculating...</div>';
     await loadData();
     renderReports();
