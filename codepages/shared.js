@@ -744,6 +744,7 @@ function renderDashboardNav() {
     }).join('') +
     '</div>' +
     '<div class="sidebar-bottom">' +
+      '<div style="text-align:center;font-size:9px;color:var(--text-dim);opacity:0.5;padding:4px 0">' + LCP_VERSION + '</div>' +
       '<a class="nav-item" onclick="toggleTheme()" href="javascript:void(0)">' +
         '<span class="nav-icon" id="themeIcon">' + themeIcon + '</span>' +
         '<span class="nav-label" id="themeLabel">' + themeLabel + '</span>' +
