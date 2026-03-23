@@ -148,13 +148,14 @@ function buildHTML() {
     <div id="tooltip"></div>
     <div id="modalOverlay" class="modal-overlay">
       <div class="modal-content">
-        <div id="modalTitle" style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--text)">New Assignment</div>
+        <div id="modalTitle" style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--text)">New Booking</div>
         <input type="hidden" id="fldRecordId" value="">
         <div class="form-group"><label class="form-label">Person</label><select class="form-select" id="fldPerson"></select></div>
         <div class="form-group"><label class="form-label">Project</label><select class="form-select" id="fldProject"></select></div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="fldStart"></div>
           <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="fldEnd"></div>
+          <div class="form-group"><label class="form-label">Hours/Day</label><input class="form-input" type="number" id="fldHours" value="8" min="1" max="24" step="0.5"></div>
         </div>
         <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="fldDesc" rows="2"></textarea></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px">
