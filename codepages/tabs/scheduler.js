@@ -15,11 +15,17 @@ var sVacations = [];
 var activePods = new Set();
 var collapsedPods = new Set();
 var searchQuery = '';
+var sMilestones = [];
 var _dragState = null;
 var _dragJustFinished = false;
 
 // ─── CSS (injected once) ──────────────────────────────────────
 var schedulerCSS = `
+  .milestone-row { height:24px; position:relative; box-sizing:border-box; border-bottom:1px solid var(--border); }
+  .milestone-bar { position:absolute; top:3px; height:18px; border-radius:3px; font-size:9px; font-weight:600; color:#fff; display:flex; align-items:center; padding:0 6px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; z-index:2; opacity:0.85; cursor:default; letter-spacing:0.2px; }
+  .milestone-bar:hover { opacity:1; filter:brightness(1.1); }
+  .milestone-label { height:24px; display:flex; align-items:center; padding:0 14px; font-size:10px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); background:var(--surface); }
+
   :root { --cell-w: 54px; --row-h: 36px; --row-line: rgba(255,255,255,0.06); }
   [data-theme='light'] { --row-line: rgba(0,0,0,0.06); }
   .sched-topbar { display:flex; align-items:center; justify-content:space-between; padding:10px 20px; border-bottom:1px solid var(--border); flex-shrink:0; gap:12px; flex-wrap:wrap; }
@@ -201,6 +207,9 @@ function renderPodFilters() {
 }
 
 function renderResourcePanel() {
+  // Remove old milestone label (re-added in renderTimeline)
+  var oldMsLabel = document.querySelector('.milestone-label');
+  if (oldMsLabel) oldMsLabel.remove();
   var groups = getGroupedPeople();
   var html = '';
   for (var pod in groups) {
@@ -272,7 +281,56 @@ function renderTimeline() {
     nowLine = '<div class="now-line" style="left:' + nowX + 'px"></div>';
   }
 
+  // ─── MILESTONE ROWS ─────────────────────────────────
   var rowsHtml = '';
+  if (sMilestones.length > 0) {
+    // Group milestones by project
+    var msByProject = {};
+    sMilestones.forEach(function(ms) {
+      var key = ms.projectName || 'Project ' + ms.projectId;
+      if (!msByProject[key]) msByProject[key] = [];
+      msByProject[key].push(ms);
+    });
+
+    // Milestone label row (resource panel side)
+    var msLabelHtml = '<div class="milestone-label">Milestones (' + sMilestones.length + ')</div>';
+
+    // Render a single row with all milestone bars
+    rowsHtml += '<div class="milestone-row" style="width:' + totalW + 'px">';
+    sMilestones.forEach(function(ms) {
+      var msStart = parseDate(ms.start), msEnd = parseDate(ms.end);
+      if (!msStart || !msEnd) return;
+      var s = Math.max(0, Math.round((msStart - viewStart) / 86400000));
+      var e = Math.min(viewDays - 1, Math.round((msEnd - viewStart) / 86400000));
+      if (e < 0 || s >= viewDays) return;
+      var left = s * cellW, width = Math.max((e - s + 1) * cellW - 2, 20);
+
+      // Color by phase name
+      var msName = (ms.name || '').toLowerCase();
+      var color = '#5b8def'; // default blue
+      if (msName.indexOf('draft 1') !== -1 || msName === 'd1') color = '#5b8def';
+      else if (msName.indexOf('draft 2') !== -1 || msName === 'd2') color = '#27ae60';
+      else if (msName.indexOf('draft 3') !== -1 || msName === 'd3') color = '#e67e22';
+      else if (msName.indexOf('draft 4') !== -1 || msName === 'd4') color = '#e74c3c';
+      else if (msName.indexOf('final') !== -1) color = '#8e44ad';
+      else if (msName.indexOf('grey') !== -1 || msName.indexOf('gray') !== -1) color = '#7f8c8d';
+
+      var label = ms.name + ' — ' + (ms.projectName || '').replace(/^\d+\s*/, '');
+      var tip = ms.name + '\n' + (ms.projectName || '') + '\n' + ms.start + ' → ' + ms.end;
+      rowsHtml += '<div class="milestone-bar" style="left:' + left + 'px;width:' + width + 'px;background:' + color + '" title="' + escapeHtml(tip) + '">' + escapeHtml(label) + '</div>';
+    });
+    rowsHtml += '</div>';
+
+    // Inject milestone label into resource panel
+    var rl = document.getElementById('resourceList');
+    if (rl) {
+      var existingLabel = rl.querySelector('.milestone-label');
+      if (!existingLabel) {
+        rl.insertAdjacentHTML('afterbegin', msLabelHtml);
+      }
+    }
+  }
+
   for (var pod in groups) {
     var members = groups[pod];
     rowsHtml += '<div class="timeline-row pod-header-row" style="width:'+totalW+'px"></div>';
@@ -523,6 +581,7 @@ async function refreshData() {
   var vEnd = formatDate(addDays(viewStart, viewDays));
   sAssignments = await getCachedAssignments(vStart, vEnd, true);
   sVacations = (await getCachedVacations(vStart, vEnd)).filter(function(v){return v.status==='Approved';});
+  sMilestones = await getCachedMilestones(vStart, vEnd);
   renderResourcePanel();
   renderTimeline();
 }

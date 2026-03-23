@@ -111,7 +111,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.12.1';
+var LCP_VERSION = 'v3.13.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -917,6 +917,38 @@ async function submitTicket() {
 }
 
 
+
+
+// ─── MILESTONES ──────────────────────────────────────────────
+var _milestoneCache = { data: [], range: { start: '', end: '' }, ts: 0 };
+
+async function getCachedMilestones(startDate, endDate, force) {
+  var c = _milestoneCache;
+  if (!force && c.range.start === startDate && c.range.end === endDate && !_isStale(c, CACHE_TTL.timeseries)) {
+    return c.data;
+  }
+  var records = await qbQuery(TABLES.milestones,
+    [FIELD.MILESTONES.id, FIELD.MILESTONES.project, FIELD.MILESTONES.projectName,
+     FIELD.MILESTONES.projectNum, FIELD.MILESTONES.name, FIELD.MILESTONES.phase,
+     FIELD.MILESTONES.start, FIELD.MILESTONES.end],
+    '{' + FIELD.MILESTONES.end + '.OAF.' + startDate + '}AND{' + FIELD.MILESTONES.start + '.BF.' + endDate + '}',
+    [{fieldId: FIELD.MILESTONES.start, order: 'ASC'}], 500);
+  c.data = (records.records || []).map(function(r) {
+    return {
+      id: val(r, FIELD.MILESTONES.id),
+      projectId: val(r, FIELD.MILESTONES.project),
+      projectName: val(r, FIELD.MILESTONES.projectName),
+      projectNum: val(r, FIELD.MILESTONES.projectNum),
+      name: val(r, FIELD.MILESTONES.name),
+      phase: val(r, FIELD.MILESTONES.phase),
+      start: val(r, FIELD.MILESTONES.start),
+      end: val(r, FIELD.MILESTONES.end)
+    };
+  });
+  c.range = { start: startDate, end: endDate };
+  c.ts = Date.now();
+  return c.data;
+}
 
 // ─── VIEW AS USER/ROLE (admin only) ──────────────────────────
 var _realUser = null;
