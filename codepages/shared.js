@@ -34,7 +34,7 @@ var FIELD = {
     project:8, projectName:20, projectNum:12, projectStage:13, projectPod:21,
     start:17, end:18, hours:9, desc:16, workType:19, draft:20,
     priority:21, weekend:11, tdId:6, color:24 },
-  PEOPLE: { id:3, name:7, email:8, role:11, active:19, podName:22, tdId:23, partTime:24 },
+  PEOPLE: { id:3, name:7, email:8, role:11, active:19, podName:22, tdId:23, partTime:24, hourlyRate:43 },
   PROJECTS: { id:3, name:19, reviewStudio:20, number:23, folder:24, type:26, stage:27, pod:82, deal:52, opportunity:67, fid36:36, fid49:49, fid54:54, fid55:55, fid62:62, fid85:85, teamChannel:91, earliestBooking:99, latestBooking:100, age:109, fid116:116, fid118:118, techAssets:119, rfpDate:120, sendToProd:141, fid137:137, tdProjectId:94 },
   MILESTONES: { id:3, tdId:6, name:7, projectTdId:8, start:9, end:10, desc:11, projectName:12, pod:13 },
   PODS: { id:3, name:6, tdId:11 },
@@ -108,12 +108,13 @@ var ICONS = {
   quotes: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>',
   reports: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
   timesheets: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  finance: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>',
   admin: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
   sun: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.16.1';
+var LCP_VERSION = 'v3.17.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -305,13 +306,14 @@ async function loadPeople(activeOnly=true) {
   const where = activeOnly ? `{${FIELD.PEOPLE.active}.EX.true}` : null;
   const rows = await qbQueryAll(TABLES.people,
     [FIELD.PEOPLE.id, FIELD.PEOPLE.name, FIELD.PEOPLE.email, FIELD.PEOPLE.role,
-     FIELD.PEOPLE.active, FIELD.PEOPLE.podName, FIELD.PEOPLE.tdId, FIELD.PEOPLE.partTime],
+     FIELD.PEOPLE.active, FIELD.PEOPLE.podName, FIELD.PEOPLE.tdId, FIELD.PEOPLE.partTime, FIELD.PEOPLE.hourlyRate],
     where);
   return rows.map(r => ({
     id: val(r, FIELD.PEOPLE.id), name: val(r, FIELD.PEOPLE.name),
     email: val(r, FIELD.PEOPLE.email), role: val(r, FIELD.PEOPLE.role),
     active: val(r, FIELD.PEOPLE.active), pod: val(r, FIELD.PEOPLE.podName) || 'Unknown',
-    tdId: val(r, FIELD.PEOPLE.tdId), partTime: val(r, FIELD.PEOPLE.partTime)
+    tdId: val(r, FIELD.PEOPLE.tdId), partTime: val(r, FIELD.PEOPLE.partTime),
+    hourlyRate: parseFloat(val(r, FIELD.PEOPLE.hourlyRate)) || 0
   })).sort((a,b) => a.pod.localeCompare(b.pod) || a.name.localeCompare(b.name));
 }
 
