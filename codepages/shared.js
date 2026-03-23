@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.17.0';
+var LCP_VERSION = 'v3.18.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -321,13 +321,15 @@ async function loadProjects(excludeComplete=true) {
   const where = excludeComplete ? `{${FIELD.PROJECTS.stage}.XEX.'Complete'}` : null;
   const rows = await qbQueryAll(TABLES.projects,
     [FIELD.PROJECTS.id, FIELD.PROJECTS.name, FIELD.PROJECTS.number,
-     FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod, FIELD.PROJECTS.tdProjectId],
+     FIELD.PROJECTS.type, FIELD.PROJECTS.stage, FIELD.PROJECTS.pod, FIELD.PROJECTS.tdProjectId,
+     FIELD.PROJECTS.deal, FIELD.PROJECTS.fid116, FIELD.PROJECTS.fid118],
     where);
   return rows.map(r => ({
     id: val(r, FIELD.PROJECTS.id), name: val(r, FIELD.PROJECTS.name),
     number: val(r, FIELD.PROJECTS.number), type: val(r, FIELD.PROJECTS.type),
     stage: val(r, FIELD.PROJECTS.stage), pod: val(r, FIELD.PROJECTS.pod),
-    tdProjectId: val(r, FIELD.PROJECTS.tdProjectId)
+    tdProjectId: val(r, FIELD.PROJECTS.tdProjectId),
+    deal: val(r, FIELD.PROJECTS.deal), receivedAssets: parseFloat(val(r, FIELD.PROJECTS.fid116)) || 0, visualAssets: parseFloat(val(r, FIELD.PROJECTS.fid118)) || 0
   })).sort((a,b) => (b.number||0) - (a.number||0));
 }
 
