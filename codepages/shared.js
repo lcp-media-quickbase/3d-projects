@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.18.0';
+var LCP_VERSION = 'v3.19.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -952,6 +952,63 @@ async function getCachedMilestones(startDate, endDate, force) {
   c.range = { start: startDate, end: endDate };
   c.ts = Date.now();
   return c.data;
+}
+
+
+// ─── DATE RANGE FILTER ──────────────────────────────────────
+var dateFilterCSS = [
+  '.date-filter { display:flex; align-items:center; gap:6px; font-size:11px; }',
+  '.date-filter label { color:var(--text-dim); font-weight:500; }',
+  '.date-filter input[type=date] { background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:3px 6px; color:var(--text); font-size:11px; font-family:inherit; }',
+  '.date-filter .btn-sm { padding:3px 8px; font-size:10px; }'
+].join('\n');
+(function(){var s=document.createElement('style');s.textContent=dateFilterCSS;document.head.appendChild(s);})();
+
+function buildDateFilter(prefix, onChange) {
+  var today = new Date();
+  var y = today.getFullYear(), m = today.getMonth();
+  // Default: current year
+  var defStart = y + '-01-01';
+  var defEnd = y + '-12-31';
+
+  var html = '<div class="date-filter">' +
+    '<label>From</label><input type="date" id="' + prefix + 'DateFrom" value="' + defStart + '">' +
+    '<label>To</label><input type="date" id="' + prefix + 'DateTo" value="' + defEnd + '">' +
+    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange('ytd')">YTD</button>' +
+    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange('q')">Quarter</button>' +
+    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange('m')">Month</button>' +
+    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange('all')">All</button>' +
+  '</div>';
+
+  // Register quick-range handler
+  window[prefix + 'SetRange'] = function(r) {
+    var from = document.getElementById(prefix + 'DateFrom');
+    var to = document.getElementById(prefix + 'DateTo');
+    var t = new Date(); var y = t.getFullYear(); var m = t.getMonth();
+    if (r === 'ytd') { from.value = y + '-01-01'; to.value = formatDate(t); }
+    else if (r === 'q') {
+      var qStart = new Date(y, Math.floor(m / 3) * 3, 1);
+      var qEnd = new Date(y, Math.floor(m / 3) * 3 + 3, 0);
+      from.value = formatDate(qStart); to.value = formatDate(qEnd);
+    }
+    else if (r === 'm') {
+      from.value = formatDate(new Date(y, m, 1));
+      to.value = formatDate(new Date(y, m + 1, 0));
+    }
+    else if (r === 'all') { from.value = '2023-01-01'; to.value = formatDate(t); }
+    if (onChange) onChange();
+  };
+
+  return html;
+}
+
+function getDateFilterRange(prefix) {
+  var from = document.getElementById(prefix + 'DateFrom');
+  var to = document.getElementById(prefix + 'DateTo');
+  return {
+    start: from ? from.value : '',
+    end: to ? to.value : ''
+  };
 }
 
 // ─── VIEW AS USER/ROLE (admin only) ──────────────────────────

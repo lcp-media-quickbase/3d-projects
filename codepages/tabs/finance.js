@@ -58,11 +58,18 @@ async function loadFinData() {
   fPeople = await getCachedPeople();
   fProjects = await getCachedProjects(false); // include complete projects
 
-  // Load ALL bookings
+  // Get date filter range
+  var dateRange = getDateFilterRange('fin');
+  var bookingWhere = null;
+  if (dateRange.start && dateRange.end) {
+    bookingWhere = '{' + FIELD.ASSIGN.end + '.OAF.' + dateRange.start + '}AND{' + FIELD.ASSIGN.start + '.BF.' + dateRange.end + '}';
+  }
+
+  // Load bookings within date range
   var records = await qbQuery(TABLES.assignments,
     [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
      FIELD.ASSIGN.projectName, FIELD.ASSIGN.hours],
-    null, [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 10000);
+    bookingWhere, [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 10000);
 
   fBookings = (records.records || []).map(function(r) {
     return {
@@ -273,6 +280,23 @@ registerTab('finance', {
     document.getElementById('tab-finance').innerHTML = buildHTML();
   },
   onActivate: async function() {
+    var dfEl = document.getElementById('finDateFilter');
+    if (dfEl && !dfEl.innerHTML) {
+      dfEl.innerHTML = buildDateFilter('fin', function() {
+        loadFinData().then(function() {
+          if (fView === 'artists') renderArtists(); else renderBudgets();
+        });
+      });
+      // Wire change events on date inputs
+      ['finDateFrom','finDateTo'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function() {
+          loadFinData().then(function() {
+            if (fView === 'artists') renderArtists(); else renderBudgets();
+          });
+        });
+      });
+    }
     document.getElementById('finTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading financial data...</td></tr>';
     await loadFinData();
     if (fView === 'artists') renderArtists(); else renderBudgets();

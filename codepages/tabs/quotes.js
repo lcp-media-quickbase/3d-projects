@@ -77,7 +77,7 @@ function buildHTML() {
         '<button class="btn btn-sm" id="qFilterApproved" onclick="qSetFilter(\'Approved\')">Approved</button>' +
       '</div>' +
     '</div>' +
-    '<div class="sched-topbar-right"></div>' +
+    '<div class="sched-topbar-right" id="qDateFilter"></div>' +
   '</div>' +
   '<div id="qKpis" class="q-kpi-row"></div>' +
   '<div style="flex:1;overflow:auto">' +
@@ -146,8 +146,11 @@ async function loadLineItems(quoteId) {
 }
 
 function getFiltered() {
+  var dr = getDateFilterRange('q');
   return qQuotes.filter(function(q) {
     if (qFilter !== 'all' && q.status !== qFilter) return false;
+    if (dr.start && q.date && q.date < dr.start) return false;
+    if (dr.end && q.date && q.date > dr.end) return false;
     if (qSearch) {
       var s = qSearch.toLowerCase();
       return (q.name && q.name.toLowerCase().indexOf(s) !== -1) ||
@@ -316,6 +319,14 @@ registerTab('quotes', {
     document.getElementById('tab-quotes').innerHTML = buildHTML();
   },
   onActivate: async function() {
+    var dfEl = document.getElementById('qDateFilter');
+    if (dfEl && !dfEl.innerHTML) {
+      dfEl.innerHTML = buildDateFilter('q', function() { loadQuotesData().then(renderQuotes); });
+      ['qDateFrom','qDateTo'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function() { loadQuotesData().then(renderQuotes); });
+      });
+    }
     window.onAppSearch = function(val) { qSearch = val.trim(); renderTable(); };
     document.getElementById('qBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:40px">Loading quotes...</td></tr>';
     await loadQuotes();
