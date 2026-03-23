@@ -623,6 +623,28 @@ function stageColor(stage) {
   return 'var(--text-muted)';
 }
 
+
+async function loadProjectScope(projectId) {
+  try {
+    var records = await qbQuery('btsstpjdq',
+      [3, 6, 25, 26, 27, 28, 29, 45],
+      '{66.EX.' + projectId + '}',
+      [{fieldId: 45, order: 'ASC'}], 100);
+    return (records.records || []).map(function(r) {
+      return {
+        id: val(r, 3),
+        asset: val(r, 6),
+        qty: val(r, 25),
+        total: val(r, 26),
+        price: val(r, 27),
+        stills: val(r, 28),
+        panos: val(r, 29),
+        product: val(r, 45)
+      };
+    });
+  } catch(e) { console.warn('[Scheduler] Could not load scope:', e); return []; }
+}
+
 async function openProjectDetail(tdProjectId) {
   if (!tdProjectId) { showToast('No project linked', 'warning'); return; }
 
@@ -651,6 +673,7 @@ async function openProjectDetail(tdProjectId) {
   requestAnimationFrame(function(){drawer.style.right='0';});
 
   var p = await loadProjectDetail(tdProjectId);
+  var scopeItems = p ? await loadProjectScope(p.id) : [];
   if (!p) {
     drawer.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Project not found for TD ID: ' + escapeHtml(tdProjectId) + '<br><button onclick="closeProjectDrawer()" class="btn" style="margin-top:12px">Close</button></div>';
     return;
@@ -670,7 +693,7 @@ async function openProjectDetail(tdProjectId) {
     '<div style="padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">' +
       '<div style="display:flex;align-items:center;justify-content:space-between">' +
         '<div>' +
-          '<div style="font-size:15px;font-weight:700;color:var(--text)">' + (p.number ? p.number + ' ' : '') + escapeHtml(p.name) + '</div>' +
+          '<div style="font-size:15px;font-weight:700;color:var(--text)">' + escapeHtml(p.name) + '</div>' +
           '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + escapeHtml(p.client || '') + (p.pod ? ' · ' + escapeHtml(p.pod) : '') + '</div>' +
         '</div>' +
         '<button onclick="closeProjectDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:18px">&times;</button>' +
@@ -706,6 +729,31 @@ async function openProjectDetail(tdProjectId) {
         '<div><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">Booking Range</div><div style="font-size:13px;color:var(--text);font-weight:500">' + fmtProjectDate(p.bookingStart) + ' — ' + fmtProjectDate(p.bookingEnd) + '</div></div>' +
         '<div><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">Technical Assets</div><div style="font-size:13px;color:var(--text);font-weight:500">' + (p.receivedAssets || 0) + ' received / ' + (p.visibleAssets || 0) + ' visible</div></div>' +
       '</div>' +
+
+      // Scope
+      (scopeItems.length ?
+        '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Project Scope (' + scopeItems.length + ' items)</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px"><thead><tr>' +
+          '<th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;border-bottom:1px solid var(--border)">Product</th>' +
+          '<th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;border-bottom:1px solid var(--border)">Asset</th>' +
+          '<th style="text-align:center;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;border-bottom:1px solid var(--border)">Qty</th>' +
+          '<th style="text-align:center;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;border-bottom:1px solid var(--border)">Stills</th>' +
+          '<th style="text-align:center;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;border-bottom:1px solid var(--border)">Panos</th>' +
+          '<th style="text-align:right;padding:6px 8px;font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;border-bottom:1px solid var(--border)">Value</th>' +
+        '</tr></thead><tbody>' +
+        scopeItems.map(function(s) {
+          return '<tr>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text);font-weight:500">' + escapeHtml(s.product || '') + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">' + escapeHtml(s.asset || '') + '</td>' +
+            '<td style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">' + (s.qty || '') + '</td>' +
+            '<td style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">' + (s.stills || '') + '</td>' +
+            '<td style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">' + (s.panos || '') + '</td>' +
+            '<td style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);font-family:JetBrains Mono,monospace;font-weight:600;color:var(--text)">' + (s.total ? '$' + Number(s.total).toLocaleString() : '') + '</td>' +
+          '</tr>';
+        }).join('') +
+        '</tbody></table>'
+      : '') +
+
     '</div>';
 }
 
