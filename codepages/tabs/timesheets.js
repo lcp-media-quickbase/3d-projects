@@ -125,8 +125,11 @@ function getHoursForDay(personKey, date) {
   return {total: total, projects: projects};
 }
 
+var TS_EXCLUDED_PODS = ['Polish office', 'TourBuilder'];
+
 function getFilteredPeople() {
   return tsPeople.filter(function(p) {
+    if (TS_EXCLUDED_PODS.indexOf(p.pod) !== -1) return false;
     if (!tsSearch) return true;
     var s = tsSearch.toLowerCase();
     return (p.name && p.name.toLowerCase().indexOf(s) !== -1) ||
