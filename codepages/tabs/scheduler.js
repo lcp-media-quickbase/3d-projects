@@ -585,7 +585,7 @@ async function loadProjectDetail(tdProjectId) {
       },
       body: JSON.stringify({
         from: 'bvaitp9x5',
-        select: [3, 19, 20, 23, 26, 27, 54, 55, 82, 91, 94, 99, 100, 109, 116, 118],
+        select: [3, 19, 20, 23, 26, 27, 52, 54, 55, 82, 91, 94, 99, 100, 109, 116, 118],
         where: "{94.EX.'" + tdProjectId + "'}",
         options: { top: 1 }
       })
@@ -597,7 +597,7 @@ async function loadProjectDetail(tdProjectId) {
     var v = function(fid) { return r[fid] ? r[fid].value : ''; };
     var proj = {
       id: v(3), name: v(19), reviewStudio: v(20), number: v(23),
-      type: v(26), stage: v(27), client: v(54), dealClose: v(55),
+      type: v(26), stage: v(27), deal: v(52), client: v(54), dealClose: v(55),
       pod: v(82), teamsChannel: v(91), tdProjectId: v(94),
       bookingStart: v(99), bookingEnd: v(100), age: v(109),
       receivedAssets: v(116), visibleAssets: v(118)
@@ -624,22 +624,22 @@ function stageColor(stage) {
 }
 
 
-async function loadProjectScope(projectId) {
+async function loadProjectScope(dealId) {
+  if (!dealId) return [];
   try {
-    var records = await qbQuery('btsstpjdq',
-      [3, 6, 25, 26, 27, 28, 29, 45],
-      '{66.EX.' + projectId + '}',
-      [{fieldId: 45, order: 'ASC'}], 100);
-    return (records.records || []).map(function(r) {
+    var rows = await qbQueryAll(TABLES.scope,
+      [FIELD.SCOPE.id, FIELD.SCOPE.product, FIELD.SCOPE.assetName, FIELD.SCOPE.quantity,
+       FIELD.SCOPE.stillsCount, FIELD.SCOPE.panosCount, FIELD.SCOPE.pricePer, FIELD.SCOPE.totalValue],
+      '{' + FIELD.SCOPE.projectRef + '.EX.' + dealId + '}');
+    return rows.map(function(r) {
       return {
-        id: val(r, 3),
-        asset: val(r, 6),
-        qty: val(r, 25),
-        total: val(r, 26),
-        price: val(r, 27),
-        stills: val(r, 28),
-        panos: val(r, 29),
-        product: val(r, 45)
+        product: val(r, FIELD.SCOPE.product),
+        asset: val(r, FIELD.SCOPE.assetName),
+        qty: val(r, FIELD.SCOPE.quantity),
+        stills: val(r, FIELD.SCOPE.stillsCount),
+        panos: val(r, FIELD.SCOPE.panosCount),
+        price: val(r, FIELD.SCOPE.pricePer),
+        total: val(r, FIELD.SCOPE.totalValue)
       };
     });
   } catch(e) { console.warn('[Scheduler] Could not load scope:', e); return []; }
@@ -673,7 +673,7 @@ async function openProjectDetail(tdProjectId) {
   requestAnimationFrame(function(){drawer.style.right='0';});
 
   var p = await loadProjectDetail(tdProjectId);
-  var scopeItems = p ? await loadProjectScope(p.id) : [];
+  var scopeItems = p && p.deal ? await loadProjectScope(p.deal) : [];
   if (!p) {
     drawer.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Project not found for TD ID: ' + escapeHtml(tdProjectId) + '<br><button onclick="closeProjectDrawer()" class="btn" style="margin-top:12px">Close</button></div>';
     return;
