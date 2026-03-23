@@ -465,6 +465,17 @@ async function saveAssignment() {
   var person=document.getElementById('fldPerson').value, project=document.getElementById('fldProject').value;
   var start=document.getElementById('fldStart').value, end=document.getElementById('fldEnd').value;
   if(!person||!project||!start||!end) { showToast('Person, Project, Start and End are required','warning'); return; }
+
+  // Check vacation conflicts
+  var vacConflicts = sVacations.filter(function(v) {
+    return String(v.personKey) === String(person) && v.start <= end && v.end >= start;
+  });
+  if (vacConflicts.length > 0) {
+    var personName = '';
+    var sel = document.getElementById('fldPerson');
+    if (sel && sel.options[sel.selectedIndex]) personName = sel.options[sel.selectedIndex].textContent;
+    if (!confirm(personName + ' has approved vacation during ' + vacConflicts[0].start + ' to ' + vacConflicts[0].end + '.\n\nCreate booking anyway?')) return;
+  }
   var recordId = document.getElementById('fldRecordId').value;
   var record = {};
   record[FIELD.ASSIGN.person] = {value:String(person)};
