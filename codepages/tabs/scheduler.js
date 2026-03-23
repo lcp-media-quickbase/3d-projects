@@ -151,7 +151,7 @@ function buildHTML() {
         <div id="modalTitle" style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--text)">New Booking</div>
         <input type="hidden" id="fldRecordId" value="">
         <div class="form-group"><label class="form-label">Person</label><select class="form-select" id="fldPerson"></select></div>
-        <div class="form-group"><label class="form-label">Project</label><select class="form-select" id="fldProject"></select></div>
+        <div class="form-group"><label class="form-label">Project</label><div style="display:flex;gap:6px"><select class="form-select" id="fldProject" style="flex:1"></select><button type="button" class="btn" onclick="openProjectDetail(document.getElementById('fldProject').value)" style="flex-shrink:0;padding:6px 10px;font-size:11px" title="View project details">Details</button></div></div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="fldStart"></div>
           <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="fldEnd"></div>
@@ -568,6 +568,160 @@ window._schedAppSearch = function(val) {
 };
 
 // ─── REGISTER TAB ─────────────────────────────────────────────
+
+
+// ─── PROJECT DETAIL DRAWER ──────────────────────────────────
+var _projectCache = {};
+
+async function loadProjectDetail(tdProjectId) {
+  if (_projectCache[tdProjectId]) return _projectCache[tdProjectId];
+  try {
+    var resp = await fetch('https://api.quickbase.com/v1/records/query', {
+      method: 'POST',
+      headers: {
+        'QB-Realm-Hostname': 'lcpmedia.quickbase.com',
+        'Authorization': 'QB-USER-TOKEN b9ytiq_f9q7_0_khn6t28ipikncmn55caczkq98b',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'bvaitp9x5',
+        select: [3, 19, 20, 23, 26, 27, 54, 55, 82, 91, 94, 99, 100, 109, 116, 118],
+        where: "{94.EX.'" + tdProjectId + "'}",
+        options: { top: 1 }
+      })
+    });
+    if (!resp.ok) return null;
+    var data = await resp.json();
+    if (!data.data || !data.data.length) return null;
+    var r = data.data[0];
+    var v = function(fid) { return r[fid] ? r[fid].value : ''; };
+    var proj = {
+      id: v(3), name: v(19), reviewStudio: v(20), number: v(23),
+      type: v(26), stage: v(27), client: v(54), dealClose: v(55),
+      pod: v(82), teamsChannel: v(91), tdProjectId: v(94),
+      bookingStart: v(99), bookingEnd: v(100), age: v(109),
+      receivedAssets: v(116), visibleAssets: v(118)
+    };
+    _projectCache[tdProjectId] = proj;
+    return proj;
+  } catch(e) { console.error('[Scheduler] Error loading project:', e); return null; }
+}
+
+function fmtProjectDate(v) {
+  if (!v) return '—';
+  var d = new Date(v);
+  return (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear();
+}
+
+function stageColor(stage) {
+  if (!stage) return 'var(--text-dim)';
+  var s = stage.toLowerCase();
+  if (s.indexOf('complete') !== -1) return 'var(--success)';
+  if (s.indexOf('production') !== -1 || s.indexOf('active') !== -1) return 'var(--accent)';
+  if (s.indexOf('review') !== -1) return 'var(--warning)';
+  if (s.indexOf('hold') !== -1 || s.indexOf('cancel') !== -1) return 'var(--danger)';
+  return 'var(--text-muted)';
+}
+
+async function openProjectDetail(tdProjectId) {
+  if (!tdProjectId) { showToast('No project linked', 'warning'); return; }
+
+  // Create overlay if needed
+  var overlay = document.getElementById('projDrawerOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'projDrawerOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:910;opacity:0;transition:opacity 0.2s';
+    overlay.onclick = function(e) { if(e.target===overlay) closeProjectDrawer(); };
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = '';
+  requestAnimationFrame(function(){overlay.style.opacity='1';});
+
+  // Create drawer
+  var drawer = document.getElementById('projDrawer');
+  if (!drawer) {
+    drawer = document.createElement('div');
+    drawer.id = 'projDrawer';
+    drawer.style.cssText = 'position:fixed;top:0;right:-480px;width:480px;height:100vh;background:var(--surface);border-left:1px solid var(--border);z-index:911;display:flex;flex-direction:column;transition:right 0.25s ease;box-shadow:-4px 0 24px rgba(0,0,0,0.25)';
+    document.body.appendChild(drawer);
+  }
+
+  drawer.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-dim)">Loading project...</div>';
+  requestAnimationFrame(function(){drawer.style.right='0';});
+
+  var p = await loadProjectDetail(tdProjectId);
+  if (!p) {
+    drawer.innerHTML = '<div style="padding:20px;color:var(--text-dim)">Project not found for TD ID: ' + escapeHtml(tdProjectId) + '<br><button onclick="closeProjectDrawer()" class="btn" style="margin-top:12px">Close</button></div>';
+    return;
+  }
+
+  var reviewUrl = '';
+  if (p.reviewStudio) {
+    reviewUrl = typeof p.reviewStudio === 'object' ? (p.reviewStudio.url || p.reviewStudio) : p.reviewStudio;
+  }
+  var teamsUrl = '';
+  if (p.teamsChannel) {
+    teamsUrl = typeof p.teamsChannel === 'object' ? (p.teamsChannel.url || p.teamsChannel) : p.teamsChannel;
+  }
+
+  drawer.innerHTML =
+    // Header
+    '<div style="padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between">' +
+        '<div>' +
+          '<div style="font-size:15px;font-weight:700;color:var(--text)">' + (p.number ? p.number + ' ' : '') + escapeHtml(p.name) + '</div>' +
+          '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + escapeHtml(p.client || '') + (p.pod ? ' · ' + escapeHtml(p.pod) : '') + '</div>' +
+        '</div>' +
+        '<button onclick="closeProjectDrawer()" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:18px">&times;</button>' +
+      '</div>' +
+      // Stage + Type badges
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+        (p.stage ? '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:600;background:' + stageColor(p.stage) + '22;color:' + stageColor(p.stage) + '">' + escapeHtml(p.stage) + '</span>' : '') +
+        (p.type ? '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:600;background:var(--surface3);color:var(--text-muted)">' + escapeHtml(p.type) + '</span>' : '') +
+      '</div>' +
+    '</div>' +
+
+    // Body
+    '<div style="flex:1;overflow-y:auto;padding:16px 20px">' +
+
+      // Action buttons
+      (reviewUrl ?
+        '<a href="' + escapeHtml(reviewUrl) + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:8px;color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;margin-bottom:8px">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
+          'Open in Review Studio</a>' : '') +
+      (teamsUrl ?
+        '<a href="' + escapeHtml(teamsUrl) + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);text-decoration:none;font-size:13px;font-weight:600;margin-bottom:16px">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' +
+          'Teams Channel</a>' : '') +
+      (!reviewUrl && !teamsUrl ? '<div style="margin-bottom:16px"></div>' : '') +
+
+      // Info grid
+      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Project Details</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:20px">' +
+        '<div><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">Client</div><div style="font-size:13px;color:var(--text);font-weight:500">' + escapeHtml(p.client || '—') + '</div></div>' +
+        '<div><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">Pod</div><div style="font-size:13px;color:var(--text);font-weight:500">' + escapeHtml(p.pod || '—') + '</div></div>' +
+        '<div><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">Deal Close</div><div style="font-size:13px;color:var(--text);font-weight:500">' + fmtProjectDate(p.dealClose) + '</div></div>' +
+        '<div><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">Project Age</div><div style="font-size:13px;color:var(--text);font-weight:500">' + (p.age || '—') + '</div></div>' +
+        '<div><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">Booking Range</div><div style="font-size:13px;color:var(--text);font-weight:500">' + fmtProjectDate(p.bookingStart) + ' — ' + fmtProjectDate(p.bookingEnd) + '</div></div>' +
+        '<div><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">Technical Assets</div><div style="font-size:13px;color:var(--text);font-weight:500">' + (p.receivedAssets || 0) + ' received / ' + (p.visibleAssets || 0) + ' visible</div></div>' +
+      '</div>' +
+    '</div>';
+}
+
+function closeProjectDrawer() {
+  var drawer = document.getElementById('projDrawer');
+  if (drawer) drawer.style.right = '-480px';
+  var overlay = document.getElementById('projDrawerOverlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(function(){overlay.style.display='none';}, 200);
+  }
+}
+
+window.openProjectDetail = openProjectDetail;
+window.closeProjectDrawer = closeProjectDrawer;
+
 registerTab('scheduler', {
   icon: '📅',
   label: 'Scheduler',
