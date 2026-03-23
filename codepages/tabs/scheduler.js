@@ -127,7 +127,7 @@ function buildHTML() {
           <button class="btn btn-active" id="btnWeek" onclick="schedSetView('week')">2 Weeks</button>
           <button class="btn" id="btnMonth" onclick="schedSetView('month')">Month</button>
         </div>
-        <button class="btn btn-primary" onclick="schedNewAssignment()">+ Assignment</button>
+        <button class="btn btn-primary" onclick="schedNewAssignment()">+ Booking</button>
       </div>
     </div>
     <div class="scheduler-layout">
@@ -161,7 +161,7 @@ function buildHTML() {
           <button class="btn btn-danger" id="btnDelete" onclick="schedDeleteAssignment()" style="display:none">Delete</button>
           <div style="display:flex;gap:8px;margin-left:auto">
             <button class="btn" onclick="schedCloseModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="schedSaveAssignment()">Save Assignment</button>
+            <button class="btn btn-primary" onclick="schedSaveAssignment()">Save Booking</button>
           </div>
         </div>
       </div>
@@ -386,8 +386,9 @@ function filterProjects(keepValue) {
 }
 
 function openNewAssignment(prefillPerson, prefillDate) {
+  try {
   populateSelects();
-  document.getElementById('modalTitle').textContent = 'New Assignment';
+  document.getElementById('modalTitle').textContent = 'New Booking';
   document.getElementById('fldRecordId').value = '';
   document.getElementById('btnDelete').style.display = 'none';
   document.getElementById('fldPerson').value = prefillPerson || '';
@@ -397,14 +398,16 @@ function openNewAssignment(prefillPerson, prefillDate) {
   document.getElementById('fldHours').value = 8;
   document.getElementById('fldDesc').value = '';
   document.getElementById('modalOverlay').classList.add('visible');
+  } catch(e) { console.error('[Scheduler] Error opening new booking:', e); showToast('Error: ' + e.message, 'error'); }
 }
 
 function openEditAssignment(id) {
   if (_dragJustFinished) { _dragJustFinished = false; return; }
+  try {
   var a = sAssignments.find(function(x){return x.id===id;});
-  if (!a) { showToast('Assignment not found','error'); return; }
+  if (!a) { showToast('Booking not found','error'); return; }
   populateSelects();
-  document.getElementById('modalTitle').textContent = 'Edit Assignment';
+  document.getElementById('modalTitle').textContent = 'Edit Booking';
   document.getElementById('fldRecordId').value = a.tdId || a.id;
   document.getElementById('btnDelete').style.display = '';
   document.getElementById('fldPerson').value = a.personKey;
@@ -414,6 +417,7 @@ function openEditAssignment(id) {
   document.getElementById('fldHours').value = a.hours || 8;
   document.getElementById('fldDesc').value = a.desc || '';
   document.getElementById('modalOverlay').classList.add('visible');
+  } catch(e) { console.error('[Scheduler] Error opening edit booking:', e); showToast('Error: ' + e.message, 'error'); }
 }
 
 function closeModal() { document.getElementById('modalOverlay').classList.remove('visible'); }
@@ -435,7 +439,7 @@ async function saveAssignment() {
   try {
     await qbUpsert(TABLES.assignments,[record], null, isEdit ? FIELD.ASSIGN.tdId : undefined);
     closeModal();
-    showToast(isEdit?'Assignment updated':'Assignment created','success');
+    showToast(isEdit?'Booking updated':'Booking created','success');
     invalidateCache('assignments');
     await refreshData();
   } catch(e) { showToast('Error: '+e.message,'error'); }
@@ -443,11 +447,11 @@ async function saveAssignment() {
 
 async function deleteAssignment() {
   var recordId = document.getElementById('fldRecordId').value;
-  if (!recordId || !confirm('Delete this assignment?')) return;
+  if (!recordId || !confirm('Delete this booking?')) return;
   try {
     await qbDelete(TABLES.assignments, '{'+FIELD.ASSIGN.tdId+'.EX.'+recordId+'}');
     closeModal();
-    showToast('Assignment deleted','success');
+    showToast('Booking deleted','success');
     invalidateCache('assignments');
     await refreshData();
   } catch(e) { showToast('Error: '+e.message,'error'); }
@@ -493,7 +497,7 @@ async function onDragEnd() {
     }
     try {
       await qbUpsert(TABLES.assignments,[{[FIELD.ASSIGN.tdId]:{value:String(a.tdId)},[FIELD.ASSIGN.start]:{value:a.start},[FIELD.ASSIGN.end]:{value:a.end}}], null, FIELD.ASSIGN.tdId);
-      showToast('Assignment updated','success');
+      showToast('Booking updated','success');
     } catch(e) { a.start=_dragState.origStart; a.end=_dragState.origEnd; showToast('Error: '+e.message,'error'); }
     _dragJustFinished = true;
   }
