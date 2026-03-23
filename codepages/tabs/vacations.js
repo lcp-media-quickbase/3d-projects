@@ -199,14 +199,14 @@ function renderHeader() {
   var days = getDaysInMonth(vMonthStart);
   var today = new Date(); today.setHours(0,0,0,0);
 
-  var html = '<tr><th class="vac-name-th">Team Member</th>';
+  var html = '<tr><th class="vac-name-th">Team Member</th><th style="min-width:55px">Used</th><th style="min-width:55px">Left</th>';
   for (var d = 1; d <= days; d++) {
     var dow = new Date(y, m, d).getDay();
     var todayCls = isToday(y, m, d) ? ' style="background:var(--accent-dim)"' : '';
     var we = (dow === 0 || dow === 6) ? ' style="opacity:0.4"' : '';
     html += '<th' + (todayCls || we) + '>' + d + '</th>';
   }
-  html += '<th>PTO Used</th><th>PTO Left</th></tr>';
+  html += '</tr>';
   el.innerHTML = html;
 }
 
@@ -252,7 +252,21 @@ function renderGrid() {
       var vacDays = 0;
       var personTarget = p.partTime ? (totalWorkDays * 4) : (totalWorkDays * 8);
 
-      html += '<tr><td class="vac-name-cell">' + escapeHtml(p.name) + '</td>';
+            // PTO balance cells (next to name)
+      var pto = vPtoBalances[String(p.tdId)] || null;
+      var ptoCellsHtml = '';
+      if (pto) {
+        var remaining = pto.allocation - pto.used - pto.pending;
+        var usedPct = pto.allocation > 0 ? (pto.used / pto.allocation) : 0;
+        var usedCls = usedPct >= 1 ? 'vac-avail-none' : usedPct >= 0.7 ? 'vac-avail-partial' : 'vac-avail-full';
+        var remCls = remaining <= 0 ? 'vac-avail-none' : remaining <= 40 ? 'vac-avail-partial' : 'vac-avail-full';
+        ptoCellsHtml = '<td class="vac-avail ' + usedCls + '">' + pto.used + (pto.pending ? '+' + pto.pending : '') + 'h</td>' +
+          '<td class="vac-avail ' + remCls + '">' + remaining + 'h</td>';
+      } else {
+        ptoCellsHtml = '<td class="vac-avail" style="opacity:0.3">—</td><td class="vac-avail" style="opacity:0.3">—</td>';
+      }
+
+      html += '<tr><td class="vac-name-cell">' + escapeHtml(p.name) + '</td>' + ptoCellsHtml;
       for (var d = 1; d <= days; d++) {
         var dateStr = formatDate(new Date(y, m, d));
         var we = isWeekend(y, m, d);
@@ -288,18 +302,7 @@ function renderGrid() {
       }
 
       totalVacDays += vacDays;
-      // PTO balance from QB table
-      var pto = vPtoBalances[String(p.tdId)] || null;
-      if (pto) {
-        var remaining = pto.allocation - pto.used - pto.pending;
-        var usedPct = pto.allocation > 0 ? (pto.used / pto.allocation) : 0;
-        var usedCls = usedPct >= 1 ? 'vac-avail-none' : usedPct >= 0.7 ? 'vac-avail-partial' : 'vac-avail-full';
-        var remCls = remaining <= 0 ? 'vac-avail-none' : remaining <= 40 ? 'vac-avail-partial' : 'vac-avail-full';
-        html += '<td class="vac-avail ' + usedCls + '">' + pto.used + (pto.pending ? '+' + pto.pending : '') + 'h</td>';
-        html += '<td class="vac-avail ' + remCls + '">' + remaining + 'h</td></tr>';
-      } else {
-        html += '<td class="vac-avail" style="opacity:0.3">—</td><td class="vac-avail" style="opacity:0.3">—</td></tr>';
-      }
+      html += '</tr>';
     });
   }
 
