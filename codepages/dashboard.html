@@ -179,25 +179,28 @@ window.buildDashboard = buildDashboard;
     });
   }
 
-  // If role is unknown (gReqRole was null), resolve user FIRST before showing tabs
-  var _roleKnown = (_currentUser.role !== ROLE.ADMIN) || (typeof gReqRole !== 'undefined' && gReqRole);
-
+  // ALWAYS resolve user and role before rendering tabs
   async function _finishBuild() {
-    if (!_roleKnown) {
-      // Show loading state on sidebar while resolving role
-      var sidebar = document.querySelector('.sidebar');
-      if (sidebar) sidebar.style.opacity = '0.3';
-      await resolveCurrentUser();
-      // Rebuild nav with correct role
-      var nav = document.querySelector('.sidebar');
-      if (nav) { nav.outerHTML = renderDashboardNav(); }
-    } else {
-      if (typeof resolveCurrentUser === 'function') resolveCurrentUser();
-    }
+    // Hide sidebar until role is confirmed
+    var sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.style.visibility = 'hidden';
 
+    // Resolve user identity and role
+    if (typeof resolveCurrentUser === 'function') await resolveCurrentUser();
+
+    // Now update nav visibility based on confirmed role
+    var visibleIds = getVisibleTabs().map(function(t){return t.id;});
+    document.querySelectorAll('.nav-item[data-tab]').forEach(function(el) {
+      el.style.display = visibleIds.indexOf(el.dataset.tab) !== -1 ? '' : 'none';
+    });
+
+    // Show sidebar
+    if (sidebar) sidebar.style.visibility = '';
+
+    // Switch to starting tab
     var hash = window.location.hash.replace('#', '');
     var visible = getVisibleTabs();
-    var startTab = (hash && _tabs[hash]) ? hash : (visible.length ? visible[0].id : null);
+    var startTab = (hash && _tabs[hash] && visibleIds.indexOf(hash) !== -1) ? hash : (visible.length ? visible[0].id : null);
     if (startTab) switchTab(startTab);
 
     if (typeof loadQBUsers === 'function') loadQBUsers();
