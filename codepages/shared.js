@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.43.2 (deploy-20260324zc)';
+var LCP_VERSION = 'v3.43.3 (deploy-20260324zd)';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -848,15 +848,6 @@ function renderAppHeader() {
       '<input type="text" id="appSearchInput" placeholder="Search this app..." autocomplete="off" oninput="if(window.onAppSearch)window.onAppSearch(this.value)">' +
     '</div>' +
     '<div class="app-header-right">' +
-      (_currentUser.isAdmin ? '<select id="viewAsSelect" class="form-select" style="font-size:11px;padding:4px 8px;width:auto;min-width:140px;border-color:var(--border);background:var(--surface2);color:var(--text-muted)" onchange="viewAsChanged(this.value)">' +
-        '<option value="me">Myself</option>' +
-        '<optgroup label="Test as Role">' +
-          '<option value="role:13">Poland Leadership</option>' +
-          '<option value="role:14">Poland Seniors</option>' +
-          '<option value="role:16">Poland Artists</option>' +
-        '</optgroup>' +
-        '<optgroup label="Test as User" id="viewAsUsers"></optgroup>' +
-      '</select>' : '') +
       '<button class="btn-ticket" onclick="openTicketDrawer()">' + ICONS.ticket + ' Tickets</button>' +
     '</div>' +
   '</div>';
