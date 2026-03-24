@@ -387,7 +387,7 @@ registerTab('admin', {
     document.getElementById('tab-admin').innerHTML = buildHTML();
   },
   onActivate: async function() {
-    window.onAppSearch = function(val) { adminSearch=val.trim().toLowerCase(); renderSub(); };
+    window.onAppSearch = function(v) { adminSearch=val.trim().toLowerCase(); renderSub(); };
     aPeople = await getCachedPeople(true);
     aProjects = await getCachedProjects(true);
     renderSub();

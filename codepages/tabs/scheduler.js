@@ -605,12 +605,12 @@ window.schedCollapseAll = function() {
 };
 window.schedSearch = function(val) {
   clearTimeout(window._schedSearchTimer);
-  window._schedSearchTimer = setTimeout(function() { searchQuery=val.trim(); renderResourcePanel(); renderTimeline(); }, 150);
+  window._schedSearchTimer = setTimeout(function() { searchQuery=v.trim(); renderResourcePanel(); renderTimeline(); }, 150);
 };
 
 // Hook into app header search
-window._schedAppSearch = function(val) {
-  searchQuery = val.trim();
+window._schedAppSearch = function(v) {
+  searchQuery = v.trim();
   var localSearch = document.getElementById('searchBox');
   if (localSearch) localSearch.value = val;
   renderResourcePanel();

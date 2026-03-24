@@ -316,7 +316,7 @@ registerTab('timesheets', {
     document.getElementById('tab-timesheets').innerHTML = buildHTML();
   },
   onActivate: async function() {
-    window.onAppSearch = function(val) { tsSearch = val.trim(); renderGrid(); };
+    window.onAppSearch = function(v) { tsSearch = v.trim(); renderGrid(); };
     updateDateDisplay();
     renderHeader();
     document.getElementById('tsTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading timesheets...</td></tr>';

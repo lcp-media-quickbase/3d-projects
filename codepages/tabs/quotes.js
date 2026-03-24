@@ -327,7 +327,7 @@ registerTab('quotes', {
         if (el) el.addEventListener('change', function() { loadQuotesData().then(renderQuotes); });
       });
     }
-    window.onAppSearch = function(val) { qSearch = val.trim(); renderTable(); };
+    window.onAppSearch = function(v) { qSearch = v.trim(); renderTable(); };
     document.getElementById('qBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:40px">Loading quotes...</td></tr>';
     await loadQuotes();
     renderKpis();

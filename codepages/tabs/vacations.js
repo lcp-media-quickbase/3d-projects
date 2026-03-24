@@ -501,7 +501,7 @@ registerTab('vacations', {
     document.getElementById('tab-vacations').innerHTML = buildHTML();
   },
   onActivate: async function() {
-    window.onAppSearch = function(val) { vSearch = val.trim(); renderGrid(); };
+    window.onAppSearch = function(v) { vSearch = v.trim(); renderGrid(); };
     updateDateDisplay();
     renderHeader();
     document.getElementById('vacTbody').innerHTML = '<tr><td colspan="35" style="text-align:center;color:var(--text-dim);padding:40px">Loading vacations...</td></tr>';
