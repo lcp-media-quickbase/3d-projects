@@ -293,6 +293,42 @@ window.finToggleBudgetPod = function(pod) {
   if (chev) chev.className = 'fin-pod-chevron' + (collapsed ? '' : ' open');
 };
 
+window.finEditAssets = function(projId, currentCount) {
+  var cell = document.getElementById('fin-assets-' + projId);
+  if (!cell) return;
+  var editSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  function restore(count) {
+    cell.innerHTML = (count ? count : '<span class="fin-dim">—</span>') +
+      '<button class="fin-edit-btn" title="Edit asset count" onclick="event.stopPropagation();finEditAssets(' + projId + ',' + (count || 0) + ')">' + editSvg + '</button>';
+  }
+  var input = document.createElement('input');
+  input.className = 'fin-rate-input';
+  input.type = 'number'; input.min = '0'; input.step = '1'; input.value = currentCount || '';
+  input.onclick = function(e) { e.stopPropagation(); };
+  input.onkeydown = function(e) {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { restore(currentCount); }
+  };
+  input.onblur = function() {
+    var count = parseInt(input.value, 10);
+    if (isNaN(count) || count < 0) { restore(currentCount); return; }
+    // Update local cache and re-render (recalculates Asset Cost column too)
+    var proj = fProjects.find(function(x) { return x.id == projId; });
+    if (proj) proj.visualAssets = count;
+    renderBudgets();
+    var rec = {}; rec[FIELD.PROJECTS.id] = {value: parseInt(projId, 10)}; rec[FIELD.PROJECTS.fid118] = {value: count};
+    qbUpsert(TABLES.projects, [rec])
+      .then(function() { showToast('Asset count updated', 'success'); })
+      .catch(function(e) {
+        showToast('Failed to save asset count', 'error'); console.error(e);
+        if (proj) proj.visualAssets = currentCount;
+        renderBudgets();
+      });
+  };
+  cell.innerHTML = ''; cell.appendChild(input);
+  input.focus(); input.select();
+};
+
 window.finEditRate = function(personId, currentRate) {
   var cell = document.getElementById('fin-rate-' + personId);
   if (!cell) return;
@@ -358,8 +394,9 @@ function renderBudgets() {
     var dealCost = 0, assets = 0;
     if (matched && matched.deal) {
       var scope = fScopeByDeal[String(matched.deal)];
-      if (scope) { dealCost = scope.totalValue; assets = scope.assets; }
-      if (!assets && matched.visualAssets) assets = matched.visualAssets;
+      if (scope) dealCost = scope.totalValue;
+      // Manual override (visualAssets) takes priority over scope record count
+      assets = matched.visualAssets || (scope ? scope.assets : 0);
     }
 
     var budget30 = dealCost * 0.30;
@@ -380,6 +417,7 @@ function renderBudgets() {
       name: projName,
       pod: (matched && matched.pod) || 'Unknown',
       number: (matched && matched.number) || 0,
+      projId: matched ? matched.id : null,
       dealCost: dealCost, budget30: budget30,
       hours: bp.hours, cost: bp.cost, totalMargin: totalMargin,
       profitMargin: profitMargin, profit: profit,
@@ -414,6 +452,10 @@ function renderBudgets() {
   podOrder.forEach(function(pod) {
     podGroups[pod].sort(function(a, b) { return (b.number || 0) - (a.number || 0); });
   });
+
+  var canEdit = typeof _currentUser !== 'undefined' &&
+    (_currentUser.role === ROLE.ADMIN || _currentUser.role === ROLE.ADMIN_COPY);
+  var editSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
 
   var totalDeal = 0, totalBudget = 0, totalH = 0, totalC = 0, totalProfit = 0, totalCount = 0;
   var html = '';
@@ -453,7 +495,12 @@ function renderBudgets() {
         '<td class="fin-num">' + (p.totalMargin !== null ? fmtPct(p.totalMargin) : d) + '</td>' +
         '<td class="fin-num ' + pmCls + '">' + (p.profitMargin !== null ? fmtPct(p.profitMargin) : '—') + '</td>' +
         '<td class="fin-num ' + profitCls + '">' + (p.profit !== null ? fmt$(p.profit) : '—') + '</td>' +
-        '<td class="fin-num">' + (p.assets || d) + '</td>' +
+        (canEdit && p.projId
+          ? '<td class="fin-num"><div class="fin-rate-cell" id="fin-assets-' + p.projId + '">' +
+              (p.assets ? p.assets : '<span class="fin-dim">—</span>') +
+              '<button class="fin-edit-btn" title="Edit asset count" onclick="event.stopPropagation();finEditAssets(' + p.projId + ',' + (p.assets || 0) + ')">' + editSvg + '</button>' +
+            '</div></td>'
+          : '<td class="fin-num">' + (p.assets || d) + '</td>') +
         '<td class="fin-num">' + (p.assetCost !== null ? fmt$(p.assetCost) : d) + '</td>' +
       '</tr>';
     });
