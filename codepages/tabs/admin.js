@@ -272,13 +272,20 @@ function editPerson(id) {
 
 async function savePerson(id, oldRole) {
   var newRole = document.getElementById('eRole').value;
+  var podName = document.getElementById('ePod').value;
   try {
-    await qbUpsert(TABLES.people,[{
+    var record = {
       [FIELD.PEOPLE.id]:{value:id},
       [FIELD.PEOPLE.name]:{value:document.getElementById('eName').value},
       [FIELD.PEOPLE.email]:{value:document.getElementById('eEmail').value},
       [FIELD.PEOPLE.role]:{value:newRole}
-    }]);
+    };
+    if (podName) {
+      var pods = await getCachedPods();
+      var pod = pods.find(function(p){return p.name === podName;});
+      if (pod && pod.tdId) record[21] = {value: pod.tdId};
+    }
+    await qbUpsert(TABLES.people,[record]);
 
     // Update QB group if role changed
     if (oldRole !== newRole) {
@@ -372,26 +379,38 @@ async function createPerson() {
   var name = document.getElementById('eName').value.trim();
   var email = document.getElementById('eEmail').value.trim();
   var role = document.getElementById('eRole').value;
+  var podName = document.getElementById('ePod').value;
   if (!name) { showToast('Name is required','warning'); return; }
   if (!email) { showToast('Email is required','warning'); return; }
   try {
-    await qbUpsert(TABLES.people,[{
+    var record = {
       [FIELD.PEOPLE.name]:{value:name},
       [FIELD.PEOPLE.email]:{value:email},
       [FIELD.PEOPLE.role]:{value:role},
       [FIELD.PEOPLE.active]:{value:true}
-    }]);
+    };
+    if (podName) {
+      var pods = await getCachedPods();
+      var pod = pods.find(function(p){return p.name === podName;});
+      if (pod && pod.tdId) record[21] = {value: pod.tdId};
+    }
+    await qbUpsert(TABLES.people,[record]);
 
     // Provision QB account (sends invite email) then add to group
     var parts = name.split(/\s+/);
-    var userId = await qbProvisionUser(email, parts[0], parts.slice(1).join(' ')||'.').catch(function(){return null;});
+    var lname = parts.slice(1).join(' ');
+    var userId = await qbProvisionUser(email, parts[0], lname).catch(function(){return null;});
     var gid = QB_ROLE_GROUPS[role];
     if (gid && userId) {
       await qbAddToGroup(gid, userId).catch(function(){});
     }
 
     adminCloseModal();
-    showToast('Person created — invite sent to '+email+(userId?'':' (QB provision failed, check manually)'),'success');
+    if (userId) {
+      showToast('Person created — invite sent to '+email,'success');
+    } else {
+      showToast('Person created — QB invite failed, check manually','warning');
+    }
     invalidateCache('people');
     aPeople = await getCachedPeople(true);
     renderSub();
@@ -480,7 +499,7 @@ registerTab('admin', {
     document.getElementById('tab-admin').innerHTML = buildHTML();
   },
   onActivate: async function() {
-    window.onAppSearch = function(v) { adminSearch=val.trim().toLowerCase(); renderSub(); };
+    window.onAppSearch = function(v) { adminSearch=v.trim().toLowerCase(); renderSub(); };
     aPeople = await getCachedPeople(true);
     aProjects = await getCachedProjects(true);
     renderSub();
