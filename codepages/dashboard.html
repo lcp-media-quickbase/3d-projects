@@ -201,7 +201,18 @@ window.buildDashboard = buildDashboard;
     var hash = window.location.hash.replace('#', '');
     var visible = getVisibleTabs();
     var startTab = (hash && _tabs[hash] && visibleIds.indexOf(hash) !== -1) ? hash : (visible.length ? visible[0].id : null);
-    if (startTab) switchTab(startTab);
+    if (startTab) {
+      // Force layout recalculation after async role resolution
+      await new Promise(function(r) { requestAnimationFrame(r); });
+      switchTab(startTab);
+      // Double-force: toggle display to trigger reflow
+      var activeTab = document.getElementById('tab-' + startTab);
+      if (activeTab) {
+        activeTab.style.display = 'none';
+        void activeTab.offsetHeight; // force reflow
+        activeTab.style.display = 'flex';
+      }
+    }
 
     if (typeof loadQBUsers === 'function') loadQBUsers();
     if (typeof renderTestBanner === 'function') renderTestBanner();
