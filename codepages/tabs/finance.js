@@ -9,6 +9,7 @@ var fProjects = [];
 var fScopeByDeal = {};
 var fView = 'budgets';
 var fSearch = '';
+var fCollapsedPods = new Set();
 
 // Per-view cache — each view only loads what it needs
 var fArtistsLoadedAt = 0;
@@ -47,7 +48,16 @@ var finCSS = [
   '.fin-pos { color:var(--success); font-weight:600; }',
   '.fin-neg { color:var(--danger); font-weight:600; }',
   '.fin-total td { background:var(--surface); font-weight:700; border-top:2px solid var(--border); }',
-  '.fin-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }'
+  '.fin-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }',
+  '.fin-pod-row td { background:var(--surface2); font-weight:600; color:var(--text); cursor:pointer; padding:7px 10px; user-select:none; }',
+  '.fin-pod-row:hover td { background:var(--surface3); }',
+  '.fin-pod-chevron { font-size:10px; color:var(--text-dim); margin-right:6px; display:inline-block; transition:transform 0.2s; }',
+  '.fin-pod-chevron.open { transform:rotate(90deg); }',
+  '.fin-rate-cell { display:flex; align-items:center; justify-content:flex-end; gap:6px; }',
+  '.fin-edit-btn { opacity:0; cursor:pointer; color:var(--text-dim); background:none; border:none; padding:1px 3px; font-size:10px; transition:opacity 0.15s; }',
+  '.fin-table tr:hover .fin-edit-btn { opacity:1; }',
+  '.fin-edit-btn:hover { color:var(--accent); }',
+  '.fin-rate-input { width:80px; background:var(--surface); border:1px solid var(--accent); border-radius:3px; padding:2px 5px; font-size:11px; color:var(--text); font-family:"JetBrains Mono",monospace; text-align:right; outline:none; }'
 ].join('\n');
 
 function fmt$(v) {
@@ -169,7 +179,10 @@ function renderArtists() {
   var tbody = document.getElementById('finTbody');
   if (!thead || !tbody) return;
 
-  thead.innerHTML = '<tr><th>Name</th><th>Pod</th><th class="num">Hourly Rate</th><th class="num">Bookings</th><th class="num">Booking Cost</th></tr>';
+  var canEdit = typeof _currentUser !== 'undefined' &&
+    (_currentUser.role === ROLE.ADMIN || _currentUser.role === ROLE.ADMIN_COPY);
+
+  thead.innerHTML = '<tr><th>Name</th><th class="num">Hourly Rate</th><th class="num">Bookings</th><th class="num">Booking Cost</th></tr>';
 
   var byPerson = {};
   fBookings.forEach(function(b) {
@@ -188,20 +201,58 @@ function renderArtists() {
     })
     .map(function(p) {
       var data = byPerson[String(p.tdId)] || {hours: 0};
-      return { name: p.name, pod: p.pod, rate: p.hourlyRate, hours: data.hours, cost: data.hours * (p.hourlyRate || 0) };
+      return { id: p.id, name: p.name, pod: p.pod || 'Unknown', rate: p.hourlyRate, hours: data.hours, cost: data.hours * (p.hourlyRate || 0) };
     })
-    .sort(function(a, b) { return b.hours - a.hours; });
+    .sort(function(a, b) { return a.pod.localeCompare(b.pod) || a.name.localeCompare(b.name); });
+
+  // Group by pod
+  var podGroups = {};
+  var podOrder = [];
+  rows.forEach(function(r) {
+    if (!podGroups[r.pod]) { podGroups[r.pod] = []; podOrder.push(r.pod); }
+    podGroups[r.pod].push(r);
+  });
 
   var totalH = 0, totalC = 0;
-  var html = rows.map(function(r) {
-    totalH += r.hours; totalC += r.cost;
-    return '<tr><td class="fin-name">' + escapeHtml(r.name) + '</td>' +
-      '<td class="fin-dim">' + escapeHtml(r.pod) + '</td>' +
-      '<td class="fin-num">' + (r.rate ? fmt$(r.rate) : '<span class="fin-dim">—</span>') + '</td>' +
-      '<td class="fin-num">' + fmtH(r.hours) + '</td>' +
-      '<td class="fin-num fin-bold">' + fmt$(r.cost) + '</td></tr>';
-  }).join('');
-  html += '<tr class="fin-total"><td>Total</td><td></td><td></td><td class="fin-num">' + fmtH(totalH) + '</td><td class="fin-num">' + fmt$(totalC) + '</td></tr>';
+  var editSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  var html = '';
+
+  podOrder.forEach(function(pod) {
+    var members = podGroups[pod];
+    var podH = members.reduce(function(s, r) { return s + r.hours; }, 0);
+    var podC = members.reduce(function(s, r) { return s + r.cost; }, 0);
+    var collapsed = fCollapsedPods.has(pod);
+    var dotColor = (typeof POD_COLORS !== 'undefined' && POD_COLORS[pod]) || '#868e96';
+    var chevronCls = 'fin-pod-chevron' + (collapsed ? '' : ' open');
+    totalH += podH; totalC += podC;
+
+    html += '<tr class="fin-pod-row" onclick="finTogglePod(\'' + escapeHtml(pod) + '\')">' +
+      '<td colspan="4">' +
+        '<span class="' + chevronCls + '" id="fin-chev-' + escapeHtml(pod) + '">&#9654;</span>' +
+        '<span class="fin-dot" style="background:' + dotColor + '"></span>' +
+        escapeHtml(pod) +
+        ' <span class="fin-dim" style="font-weight:400;font-size:10px">(' + members.length + ' people &middot; ' + fmtH(podH) + ' &middot; ' + fmt$(podC) + ')</span>' +
+      '</td></tr>';
+
+    members.forEach(function(r) {
+      var rateHtml;
+      if (canEdit) {
+        rateHtml = '<td class="fin-num"><div class="fin-rate-cell" id="fin-rate-' + r.id + '">' +
+          (r.rate ? fmt$(r.rate) : '<span class="fin-dim">—</span>') +
+          '<button class="fin-edit-btn" title="Edit rate" onclick="event.stopPropagation();finEditRate(' + r.id + ',' + (r.rate || 0) + ')">' + editSvg + '</button>' +
+          '</div></td>';
+      } else {
+        rateHtml = '<td class="fin-num">' + (r.rate ? fmt$(r.rate) : '<span class="fin-dim">—</span>') + '</td>';
+      }
+      html += '<tr class="fin-person-row" data-fin-pod="' + escapeHtml(pod) + '"' + (collapsed ? ' style="display:none"' : '') + '>' +
+        '<td class="fin-name">' + escapeHtml(r.name) + '</td>' +
+        rateHtml +
+        '<td class="fin-num">' + fmtH(r.hours) + '</td>' +
+        '<td class="fin-num fin-bold">' + fmt$(r.cost) + '</td></tr>';
+    });
+  });
+
+  html += '<tr class="fin-total"><td>Total (' + rows.length + ')</td><td></td><td class="fin-num">' + fmtH(totalH) + '</td><td class="fin-num">' + fmt$(totalC) + '</td></tr>';
   tbody.innerHTML = html;
 
   var kpi = document.getElementById('finKpis');
@@ -215,6 +266,48 @@ function renderArtists() {
       '<div class="fin-kpi"><div class="fin-kpi-label">Team Members</div><div class="fin-kpi-value">' + rows.length + '</div></div>';
   }
 }
+
+window.finTogglePod = function(pod) {
+  if (fCollapsedPods.has(pod)) fCollapsedPods.delete(pod); else fCollapsedPods.add(pod);
+  var collapsed = fCollapsedPods.has(pod);
+  document.querySelectorAll('[data-fin-pod="' + pod + '"]').forEach(function(row) {
+    row.style.display = collapsed ? 'none' : '';
+  });
+  var chev = document.getElementById('fin-chev-' + pod);
+  if (chev) chev.className = 'fin-pod-chevron' + (collapsed ? '' : ' open');
+};
+
+window.finEditRate = function(personId, currentRate) {
+  var cell = document.getElementById('fin-rate-' + personId);
+  if (!cell) return;
+  var editSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  function restore(rate) {
+    cell.innerHTML = (rate ? fmt$(rate) : '<span class="fin-dim">—</span>') +
+      '<button class="fin-edit-btn" title="Edit rate" onclick="event.stopPropagation();finEditRate(' + personId + ',' + (rate || 0) + ')">' + editSvg + '</button>';
+  }
+  var input = document.createElement('input');
+  input.className = 'fin-rate-input';
+  input.type = 'number'; input.min = '0'; input.step = '1'; input.value = currentRate || '';
+  input.onclick = function(e) { e.stopPropagation(); };
+  input.onkeydown = function(e) {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { restore(currentRate); }
+  };
+  input.onblur = function() {
+    var rate = parseFloat(input.value);
+    if (isNaN(rate) || rate < 0) { restore(currentRate); return; }
+    restore(rate);
+    var p = fPeople.find(function(x) { return x.id == personId; });
+    if (p) p.hourlyRate = rate;
+    // Also update fArtistsLoadedAt=0 so cost totals recalc next render
+    var rec = {}; rec[FIELD.PEOPLE.id] = {value: parseInt(personId, 10)}; rec[FIELD.PEOPLE.hourlyRate] = {value: rate};
+    qbUpsert(TABLES.people, [rec])
+      .then(function() { showToast('Hourly rate updated', 'success'); getCachedPeople(true); })
+      .catch(function(e) { showToast('Failed to save rate', 'error'); console.error(e); restore(currentRate); });
+  };
+  cell.innerHTML = ''; cell.appendChild(input);
+  input.focus(); input.select();
+};
 
 // ─── PROJECT BUDGETS VIEW ───────────────────────────────────
 function renderBudgets() {
