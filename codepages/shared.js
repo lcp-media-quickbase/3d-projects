@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.43.1 (deploy-20260324zb)';
+var LCP_VERSION = 'v3.43.2 (deploy-20260324zc)';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -1032,7 +1032,8 @@ var dateFilterCSS = [
   '.date-filter input[type=date] { background:var(--surface); border:1px solid var(--border); border-right:none; border-radius:4px 0 0 4px; padding:3px 6px; color:var(--text); font-size:11px; font-family:inherit; }',
   '.date-picker-btn { display:flex; align-items:center; padding:0 6px; background:var(--surface); border:1px solid var(--border); border-radius:0 4px 4px 0; cursor:pointer; color:var(--text-dim); transition:all 0.15s; }',
   '.date-picker-btn:hover { background:var(--accent-dim); color:var(--accent); border-color:var(--accent-border); }',
-  '.date-filter .btn-sm { padding:3px 8px; font-size:10px; }'
+  '.date-filter .btn-sm { padding:3px 8px; font-size:10px; }',
+  '.date-filter .btn-sm.active { background:var(--accent-dim); color:var(--accent); border-color:var(--accent-border); font-weight:600; }'
 ].join('\n');
 (function(){var s=document.createElement('style');s.textContent=dateFilterCSS;document.head.appendChild(s);})();
 
@@ -1043,23 +1044,34 @@ function buildDateFilter(prefix, onChange) {
   var defEnd = y + '-12-31';
 
   var calIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>';
+  var presets = ['w', 'm', 'q', 'y', 'all'];
+  function setActivePreset(r) {
+    presets.forEach(function(p) {
+      var btn = document.getElementById(prefix + 'Preset-' + p);
+      if (btn) btn.classList.toggle('active', p === r);
+    });
+  }
+  window[prefix + 'ActivePreset'] = 'y';
+
   var html = '<div class="date-filter">' +
     '<label>From</label>' +
     '<div class="date-picker-wrap">' +
-      '<input type="date" id="' + prefix + 'DateFrom" value="' + defStart + '">' +
+      '<input type="date" id="' + prefix + 'DateFrom" value="' + defStart + '" onchange="window[\'' + prefix + 'ActivePreset\']=null;' + prefix + 'ClearPreset()">' +
       '<button class="date-picker-btn" title="Pick date" onclick="try{document.getElementById(\x27' + prefix + 'DateFrom\x27).showPicker()}catch(e){}">' + calIcon + '</button>' +
     '</div>' +
     '<label>To</label>' +
     '<div class="date-picker-wrap">' +
-      '<input type="date" id="' + prefix + 'DateTo" value="' + defEnd + '">' +
+      '<input type="date" id="' + prefix + 'DateTo" value="' + defEnd + '" onchange="window[\'' + prefix + 'ActivePreset\']=null;' + prefix + 'ClearPreset()">' +
       '<button class="date-picker-btn" title="Pick date" onclick="try{document.getElementById(\x27' + prefix + 'DateTo\x27).showPicker()}catch(e){}">' + calIcon + '</button>' +
     '</div>' +
-    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27w\x27)">Week</button>' +
-    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27m\x27)">Month</button>' +
-    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27q\x27)">Quarter</button>' +
-    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27y\x27)">Year</button>' +
-    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27all\x27)">All Time</button>' +
+    '<button class="btn btn-sm" id="' + prefix + 'Preset-w" onclick="' + prefix + 'SetRange(\x27w\x27)">Week</button>' +
+    '<button class="btn btn-sm" id="' + prefix + 'Preset-m" onclick="' + prefix + 'SetRange(\x27m\x27)">Month</button>' +
+    '<button class="btn btn-sm" id="' + prefix + 'Preset-q" onclick="' + prefix + 'SetRange(\x27q\x27)">Quarter</button>' +
+    '<button class="btn btn-sm active" id="' + prefix + 'Preset-y" onclick="' + prefix + 'SetRange(\x27y\x27)">Year</button>' +
+    '<button class="btn btn-sm" id="' + prefix + 'Preset-all" onclick="' + prefix + 'SetRange(\x27all\x27)">All Time</button>' +
   '</div>';
+
+  window[prefix + 'ClearPreset'] = function() { setActivePreset(null); };
 
   window[prefix + 'SetRange'] = function(r) {
     var from = document.getElementById(prefix + 'DateFrom');
@@ -1078,6 +1090,7 @@ function buildDateFilter(prefix, onChange) {
     }
     else if (r === 'y') { from.value = y + '-01-01'; to.value = y + '-12-31'; }
     else if (r === 'all') { from.value = '2020-01-01'; to.value = formatDate(t); }
+    setActivePreset(r);
     if (onChange) onChange();
   };
 
