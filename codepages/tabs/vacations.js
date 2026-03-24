@@ -10,6 +10,8 @@ var vMonthStart = null;
 var vCollapsedPods = new Set();
 var vSearch = '';
 var vPtoBalances = {};
+var vLoadedKey = null;
+var vLoadedAt = 0;
 
 var EXCLUDED_PODS = ['Polish office', 'TourBuilder'];
 
@@ -162,6 +164,8 @@ async function loadVacData() {
       hours: parseFloat(fv(r, FIELD.ASSIGN.hours)) || 8
     };
   });
+  vLoadedKey = formatDate(vMonthStart);
+  vLoadedAt = Date.now();
 }
 
 function getVacationForDay(personTdId, dateStr) {
@@ -506,9 +510,14 @@ registerTab('vacations', {
     window.onAppSearch = function(v) { vSearch = v.trim(); renderGrid(); };
     updateDateDisplay();
     renderHeader();
-    document.getElementById('vacTbody').innerHTML = '<tr><td colspan="35" style="text-align:center;color:var(--text-dim);padding:40px">Loading vacations...</td></tr>';
-    await loadVacData();
-    renderGrid();
+    var key = formatDate(vMonthStart);
+    if (key === vLoadedKey && Date.now() - vLoadedAt < 300000) {
+      renderGrid();
+    } else {
+      document.getElementById('vacTbody').innerHTML = '<tr><td colspan="35" style="text-align:center;color:var(--text-dim);padding:40px">Loading vacations...</td></tr>';
+      await loadVacData();
+      renderGrid();
+    }
   }
 });
 

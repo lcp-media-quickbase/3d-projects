@@ -9,6 +9,8 @@ var fProjects = [];
 var fScopeByDeal = {};
 var fView = 'artists';
 var fSearch = '';
+var fLoadedAt = 0;
+var fLoadedRange = '';
 
 var EXCLUDED_PODS = ['Polish office', 'TourBuilder'];
 
@@ -95,6 +97,8 @@ async function loadFinData() {
       fScopeByDeal[dealId].assets += 1;
     });
   } catch(e) { console.warn('[Finance] Could not load scope:', e); }
+  fLoadedRange = dateRange.start + ':' + dateRange.end;
+  fLoadedAt = Date.now();
 }
 
 // ─── ARTIST COSTS VIEW ─────────────────────────────────────
@@ -311,9 +315,15 @@ registerTab('finance', {
         });
       });
     }
-    document.getElementById('finTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading financial data...</td></tr>';
-    await loadFinData();
-    if (fView === 'artists') renderArtists(); else renderBudgets();
+    var dr = getDateFilterRange('fin');
+    var rangeKey = dr.start + ':' + dr.end;
+    if (rangeKey === fLoadedRange && Date.now() - fLoadedAt < 300000) {
+      if (fView === 'artists') renderArtists(); else renderBudgets();
+    } else {
+      document.getElementById('finTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading financial data...</td></tr>';
+      await loadFinData();
+      if (fView === 'artists') renderArtists(); else renderBudgets();
+    }
   }
 });
 

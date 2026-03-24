@@ -8,6 +8,8 @@
 var viewStart = getMonday(new Date());
 var viewDays = 14;
 var currentView = 'week';
+var sLoadedKey = null;
+var sLoadedAt = 0;
 var sPeople = [];
 var sProjects = [];
 var sAssignments = [];
@@ -589,6 +591,8 @@ async function refreshData() {
   sAssignments = _r[0];
   sVacations = _r[1].filter(function(v){return v.status==='Approved';});
   sMilestones = _r[2];
+  sLoadedKey = formatDate(viewStart) + ':' + viewDays;
+  sLoadedAt = Date.now();
   renderResourcePanel();
   renderTimeline();
 }
@@ -940,7 +944,13 @@ registerTab('scheduler', {
     renderPodFilters();
     updateDateDisplay();
     renderTimelineHeader();
-    await refreshData();
+    var key = formatDate(viewStart) + ':' + viewDays;
+    if (key === sLoadedKey && Date.now() - sLoadedAt < 300000) {
+      renderResourcePanel();
+      renderTimeline();
+    } else {
+      await refreshData();
+    }
   }
 });
 

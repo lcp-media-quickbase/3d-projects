@@ -8,6 +8,8 @@ var tsPeople = [];
 var tsBookings = [];
 var tsCollapsedPods = new Set();
 var tsSearch = '';
+var tsLoadedKey = null;
+var tsLoadedAt = 0;
 
 var tsCSS = [
   '.ts-topbar { display:flex; align-items:center; justify-content:space-between; padding:10px 20px; border-bottom:1px solid var(--border); flex-shrink:0; gap:12px; }',
@@ -111,6 +113,8 @@ async function loadTimesheetData() {
       hours: parseFloat(fv(r, FIELD.ASSIGN.hours)) || 8
     };
   });
+  tsLoadedKey = formatDate(tsWeekStart);
+  tsLoadedAt = Date.now();
 }
 
 function getHoursForDay(personKey, date) {
@@ -321,9 +325,14 @@ registerTab('timesheets', {
     window.onAppSearch = function(v) { tsSearch = v.trim(); renderGrid(); };
     updateDateDisplay();
     renderHeader();
-    document.getElementById('tsTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading timesheets...</td></tr>';
-    await loadTimesheetData();
-    renderGrid();
+    var key = formatDate(tsWeekStart);
+    if (key === tsLoadedKey && Date.now() - tsLoadedAt < 300000) {
+      renderGrid();
+    } else {
+      document.getElementById('tsTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading timesheets...</td></tr>';
+      await loadTimesheetData();
+      renderGrid();
+    }
   }
 });
 

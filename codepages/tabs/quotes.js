@@ -11,6 +11,7 @@ var qQuotes = [];
 var qLineItems = {};
 var qFilter = 'all';
 var qSearch = '';
+var qLoadedAt = 0;
 
 var quotesCSS = [
   '.quotes-table { width:100%; border-collapse:collapse; font-size:13px; }',
@@ -120,6 +121,7 @@ async function loadQuotes() {
       total: r[39] ? r[39].value : 0
     };
   });
+  qLoadedAt = Date.now();
 }
 
 async function loadLineItems(quoteId) {
@@ -328,10 +330,15 @@ registerTab('quotes', {
       });
     }
     window.onAppSearch = function(v) { qSearch = v.trim(); renderTable(); };
-    document.getElementById('qBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:40px">Loading quotes...</td></tr>';
-    await loadQuotes();
-    renderKpis();
-    renderTable();
+    if (Date.now() - qLoadedAt < 300000) {
+      renderKpis();
+      renderTable();
+    } else {
+      document.getElementById('qBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:40px">Loading quotes...</td></tr>';
+      await loadQuotes();
+      renderKpis();
+      renderTable();
+    }
   }
 });
 
