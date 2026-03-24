@@ -39,7 +39,7 @@ function buildHTML() {
     </div>
     <div class="admin-subtab active" id="adminSub-people">
       <div class="table-container"><table class="data-table"><thead><tr>
-        <th style="width:30px">#</th><th>Name</th><th>Email</th><th>POD</th><th>Role</th><th>Status</th><th>TD ID</th><th style="width:80px"></th>
+        <th>Name</th><th>Email</th><th>POD</th><th>Role</th><th>Status</th><th style="width:80px"></th>
       </tr></thead><tbody id="adminPeopleBody"></tbody></table></div>
     </div>
     <div class="admin-subtab" id="adminSub-projects">
