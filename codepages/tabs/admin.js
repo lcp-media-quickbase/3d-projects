@@ -40,8 +40,11 @@ async function qbProvisionUser(email, fname, lname) {
 }
 
 async function qbGetUserIdByEmail(email) {
-  var resp = await fetch('https://'+QB_REALM+'/db/main?a=API_GetUserInfo&email='+encodeURIComponent(email), {
-    credentials: 'include'
+  var body = '<qdbapi><email>'+escXml(email)+'</email></qdbapi>';
+  var resp = await fetch('https://'+QB_REALM+'/db/main?a=API_GetUserInfo', {
+    method: 'POST', credentials: 'include',
+    headers: {'Content-Type': 'application/xml; charset=UTF-8'},
+    body: body
   });
   var text = await resp.text();
   var match = text.match(/<userid>([^<]+)<\/userid>/);
