@@ -7,7 +7,7 @@ var fPeople = [];
 var fBookings = [];
 var fProjects = [];
 var fScopeByDeal = {};
-var fView = 'artists';
+var fView = 'budgets';
 var fSearch = '';
 var fLoadedAt = 0;
 var fLoadedRange = '';
@@ -50,9 +50,11 @@ function fmtH(v) { return v ? Math.round(v).toLocaleString() + 'h' : '—'; }
 function buildHTML() {
   return '<div class="fin-topbar">' +
     '<div class="fin-tabs">' +
-      '<div class="fin-tab active" id="finTabArtists" onclick="finSetView(\'artists\')">Artist Costs</div>' +
-      '<div class="fin-tab" id="finTabBudgets" onclick="finSetView(\'budgets\')">Project Budgets</div>' +
-    '</div><div></div></div>' +
+      '<div class="fin-tab active" id="finTabBudgets" onclick="finSetView(\'budgets\')">Project Budgets</div>' +
+      '<div class="fin-tab" id="finTabArtists" onclick="finSetView(\'artists\')">Artist Costs</div>' +
+    '</div>' +
+    '<div id="finDateFilter"></div>' +
+  '</div>' +
   '<div id="finKpis" class="fin-kpi-row"></div>' +
   '<div class="fin-grid"><table class="fin-table"><thead id="finThead"></thead><tbody id="finTbody"></tbody></table></div>';
 }
@@ -280,9 +282,9 @@ function renderBudgets() {
 
 function setView(v) {
   fView = v;
-  document.getElementById('finTabArtists').className = v === 'artists' ? 'fin-tab active' : 'fin-tab';
   document.getElementById('finTabBudgets').className = v === 'budgets' ? 'fin-tab active' : 'fin-tab';
-  if (v === 'artists') renderArtists(); else renderBudgets();
+  document.getElementById('finTabArtists').className = v === 'artists' ? 'fin-tab active' : 'fin-tab';
+  if (v === 'budgets') renderBudgets(); else renderArtists();
 }
 
 window.finSetView = setView;
@@ -297,32 +299,30 @@ registerTab('finance', {
     document.getElementById('tab-finance').innerHTML = buildHTML();
   },
   onActivate: async function() {
-    window.onAppSearch = function(val) { fSearch = val.trim(); if (fView === 'artists') renderArtists(); else renderBudgets(); };
+    function rerender() { if (fView === 'budgets') renderBudgets(); else renderArtists(); }
+    window.onAppSearch = function(val) { fSearch = val.trim(); rerender(); };
     var dfEl = document.getElementById('finDateFilter');
     if (dfEl && !dfEl.innerHTML) {
       dfEl.innerHTML = buildDateFilter('fin', function() {
-        loadFinData().then(function() {
-          if (fView === 'artists') renderArtists(); else renderBudgets();
-        });
+        fLoadedAt = 0; // invalidate cache on preset click
+        loadFinData().then(rerender);
       });
-      // Wire change events on date inputs
       ['finDateFrom','finDateTo'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', function() {
-          loadFinData().then(function() {
-            if (fView === 'artists') renderArtists(); else renderBudgets();
-          });
+          fLoadedAt = 0; // invalidate cache on manual date change
+          loadFinData().then(rerender);
         });
       });
     }
     var dr = getDateFilterRange('fin');
     var rangeKey = dr.start + ':' + dr.end;
     if (rangeKey === fLoadedRange && Date.now() - fLoadedAt < 300000) {
-      if (fView === 'artists') renderArtists(); else renderBudgets();
+      rerender();
     } else {
       document.getElementById('finTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading financial data...</td></tr>';
       await loadFinData();
-      if (fView === 'artists') renderArtists(); else renderBudgets();
+      rerender();
     }
   }
 });

@@ -323,10 +323,10 @@ registerTab('quotes', {
   onActivate: async function() {
     var dfEl = document.getElementById('qDateFilter');
     if (dfEl && !dfEl.innerHTML) {
-      dfEl.innerHTML = buildDateFilter('q', function() { loadQuotesData().then(renderQuotes); });
+      dfEl.innerHTML = buildDateFilter('q', function() { renderKpis(); renderTable(); });
       ['qDateFrom','qDateTo'].forEach(function(id) {
         var el = document.getElementById(id);
-        if (el) el.addEventListener('change', function() { loadQuotesData().then(renderQuotes); });
+        if (el) el.addEventListener('change', function() { renderKpis(); renderTable(); });
       });
     }
     window.onAppSearch = function(v) { qSearch = v.trim(); renderTable(); };

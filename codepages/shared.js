@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.40.0';
+var LCP_VERSION = 'v3.41.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -1035,36 +1035,37 @@ var dateFilterCSS = [
 
 function buildDateFilter(prefix, onChange) {
   var today = new Date();
-  var y = today.getFullYear(), m = today.getMonth();
-  // Default: current year
+  var y = today.getFullYear();
   var defStart = y + '-01-01';
   var defEnd = y + '-12-31';
 
   var html = '<div class="date-filter">' +
     '<label>From</label><input type="date" id="' + prefix + 'DateFrom" value="' + defStart + '">' +
     '<label>To</label><input type="date" id="' + prefix + 'DateTo" value="' + defEnd + '">' +
-    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27ytd\x27)">YTD</button>' +
-    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27q\x27)">Quarter</button>' +
+    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27w\x27)">Week</button>' +
     '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27m\x27)">Month</button>' +
-    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27all\x27)">All</button>' +
+    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27q\x27)">Quarter</button>' +
+    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27y\x27)">Year</button>' +
+    '<button class="btn btn-sm" onclick="' + prefix + 'SetRange(\x27all\x27)">All Time</button>' +
   '</div>';
 
-  // Register quick-range handler
   window[prefix + 'SetRange'] = function(r) {
     var from = document.getElementById(prefix + 'DateFrom');
     var to = document.getElementById(prefix + 'DateTo');
     var t = new Date(); var y = t.getFullYear(); var m = t.getMonth();
-    if (r === 'ytd') { from.value = y + '-01-01'; to.value = formatDate(t); }
+    if (r === 'w') {
+      var day = t.getDay(), diff = (day === 0 ? -6 : 1 - day);
+      var mon = new Date(t); mon.setDate(t.getDate() + diff);
+      var sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      from.value = formatDate(mon); to.value = formatDate(sun);
+    }
+    else if (r === 'm') { from.value = formatDate(new Date(y, m, 1)); to.value = formatDate(new Date(y, m + 1, 0)); }
     else if (r === 'q') {
       var qStart = new Date(y, Math.floor(m / 3) * 3, 1);
-      var qEnd = new Date(y, Math.floor(m / 3) * 3 + 3, 0);
-      from.value = formatDate(qStart); to.value = formatDate(qEnd);
+      from.value = formatDate(qStart); to.value = formatDate(new Date(y, Math.floor(m / 3) * 3 + 3, 0));
     }
-    else if (r === 'm') {
-      from.value = formatDate(new Date(y, m, 1));
-      to.value = formatDate(new Date(y, m + 1, 0));
-    }
-    else if (r === 'all') { from.value = '2023-01-01'; to.value = formatDate(t); }
+    else if (r === 'y') { from.value = y + '-01-01'; to.value = y + '-12-31'; }
+    else if (r === 'all') { from.value = '2020-01-01'; to.value = formatDate(t); }
     if (onChange) onChange();
   };
 
