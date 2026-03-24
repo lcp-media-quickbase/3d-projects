@@ -103,15 +103,27 @@ async function loadVacData() {
   var startStr = formatDate(vMonthStart);
   var endStr = formatDate(new Date(vMonthStart.getFullYear(), vMonthStart.getMonth(), daysInMonth + 1));
 
-  vPeople = await getCachedPeople();
-
-  // Load vacations for this month
-  var vacResult = await qbQuery(TABLES.vacations,
-    [FIELD.VACATION.id, FIELD.VACATION.person, FIELD.VACATION.personName, FIELD.VACATION.personPod,
-     FIELD.VACATION.personTdId, FIELD.VACATION.start, FIELD.VACATION.end, FIELD.VACATION.type,
-     FIELD.VACATION.status, FIELD.VACATION.notes],
-    '{' + FIELD.VACATION.end + '.OAF.' + startStr + '}AND{' + FIELD.VACATION.start + '.BF.' + endStr + '}',
-    [{fieldId: FIELD.VACATION.start, order: 'ASC'}], 500);
+  // Load all data in parallel
+  var _vr = await Promise.all([
+    getCachedPeople(),
+    qbQuery(TABLES.vacations,
+      [FIELD.VACATION.id, FIELD.VACATION.person, FIELD.VACATION.personName, FIELD.VACATION.personPod,
+       FIELD.VACATION.personTdId, FIELD.VACATION.start, FIELD.VACATION.end, FIELD.VACATION.type,
+       FIELD.VACATION.status, FIELD.VACATION.notes],
+      '{' + FIELD.VACATION.end + '.OAF.' + startStr + '}AND{' + FIELD.VACATION.start + '.BF.' + endStr + '}',
+      [{fieldId: FIELD.VACATION.start, order: 'ASC'}], 500),
+    qbQuery(TABLES.ptoBalances,
+      [FIELD.PTO.id, FIELD.PTO.year, FIELD.PTO.allocation, FIELD.PTO.used,
+       FIELD.PTO.pending, FIELD.PTO.personTdId, FIELD.PTO.personName],
+      '{' + FIELD.PTO.year + '.EX.2026}',
+      [{fieldId: FIELD.PTO.personName, order: 'ASC'}], 100).catch(function(){return {records:[]};}),
+    qbQuery(TABLES.assignments,
+      [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours],
+      '{' + FIELD.ASSIGN.end + '.OAF.' + startStr + '}AND{' + FIELD.ASSIGN.start + '.BF.' + endStr + '}',
+      [{fieldId: FIELD.ASSIGN.start, order: 'ASC'}], 2000)
+  ]);
+  vPeople = _vr[0];
+  var vacResult = _vr[1];
 
   vVacations = (vacResult.records || []).map(function(r) {
     return {
@@ -127,13 +139,8 @@ async function loadVacData() {
     };
   });
 
-  // Load PTO balances (current year)
-  try {
-    var ptoResult = await qbQuery(TABLES.ptoBalances,
-      [FIELD.PTO.id, FIELD.PTO.year, FIELD.PTO.allocation, FIELD.PTO.used,
-       FIELD.PTO.pending, FIELD.PTO.personTdId, FIELD.PTO.personName],
-      '{' + FIELD.PTO.year + '.EX.2026}',
-      [{fieldId: FIELD.PTO.personName, order: 'ASC'}], 100);
+  // PTO balances from parallel load
+    var ptoResult = _vr[2];
     vPtoBalances = {};
     (ptoResult.records || []).forEach(function(r) {
       var tdId = String(fv(r, FIELD.PTO.personTdId));
@@ -144,14 +151,9 @@ async function loadVacData() {
         pending: parseFloat(fv(r, FIELD.PTO.pending)) || 0
       };
     });
-  } catch(e) { console.warn('[Vacations] Could not load PTO balances:', e); }
 
-  // Load bookings for this month (for available hours calc)
-  var bookResult = await qbQuery(TABLES.assignments,
-    [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours],
-    '{' + FIELD.ASSIGN.end + '.OAF.' + startStr + '}AND{' + FIELD.ASSIGN.start + '.BF.' + endStr + '}',
-    [{fieldId: FIELD.ASSIGN.start, order: 'ASC'}], 2000);
-
+  // Bookings from parallel load
+  var bookResult = _vr[3];
   vBookings = (bookResult.records || []).map(function(r) {
     return {
       personKey: String(fv(r, FIELD.ASSIGN.person)),

@@ -192,6 +192,11 @@ window.buildDashboard = buildDashboard;
   // Resolve user identity in background — role correction hides nav items after
   if (typeof resolveCurrentUser === 'function') resolveCurrentUser();
   if (typeof loadQBUsers === 'function') loadQBUsers();
+
+  // Preload shared reference data in background for faster tab switching
+  if (typeof getCachedPeople === 'function') getCachedPeople();
+  if (typeof getCachedProjects === 'function') getCachedProjects();
+  if (typeof getCachedPods === 'function') getCachedPods();
   if (typeof renderTestBanner === 'function') renderTestBanner();
 
   // Handle back/forward browser navigation

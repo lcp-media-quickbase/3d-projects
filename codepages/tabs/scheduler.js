@@ -581,9 +581,14 @@ function onTimelineClick(event, personTdId) {
 async function refreshData() {
   var vStart = formatDate(viewStart);
   var vEnd = formatDate(addDays(viewStart, viewDays));
-  sAssignments = await getCachedAssignments(vStart, vEnd, true);
-  sVacations = (await getCachedVacations(vStart, vEnd)).filter(function(v){return v.status==='Approved';});
-  sMilestones = await getCachedMilestones(vStart, vEnd);
+  var _r = await Promise.all([
+    getCachedAssignments(vStart, vEnd, true),
+    getCachedVacations(vStart, vEnd),
+    getCachedMilestones(vStart, vEnd)
+  ]);
+  sAssignments = _r[0];
+  sVacations = _r[1].filter(function(v){return v.status==='Approved';});
+  sMilestones = _r[2];
   renderResourcePanel();
   renderTimeline();
 }

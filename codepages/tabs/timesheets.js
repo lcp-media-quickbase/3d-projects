@@ -89,14 +89,16 @@ async function loadTimesheetData() {
   var endStr = formatDate(weekEnd);
 
   // Load people (from cache)
-  tsPeople = await getCachedPeople();
-
-  // Load bookings for this week
-  var records = await qbQuery(TABLES.assignments,
-    [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
-     FIELD.ASSIGN.projectName, FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours],
-    '{' + FIELD.ASSIGN.end + '.OAF.' + startStr + '}AND{' + FIELD.ASSIGN.start + '.BF.' + endStr + '}',
-    [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 2000);
+  var _tr = await Promise.all([
+    getCachedPeople(),
+    qbQuery(TABLES.assignments,
+      [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
+       FIELD.ASSIGN.projectName, FIELD.ASSIGN.start, FIELD.ASSIGN.end, FIELD.ASSIGN.hours],
+      '{' + FIELD.ASSIGN.end + '.OAF.' + startStr + '}AND{' + FIELD.ASSIGN.start + '.BF.' + endStr + '}',
+      [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 2000)
+  ]);
+  tsPeople = _tr[0];
+  var records = _tr[1];
 
   tsBookings = (records.records || []).map(function(r) {
     return {
