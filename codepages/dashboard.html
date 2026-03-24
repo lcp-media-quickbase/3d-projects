@@ -163,6 +163,10 @@ window.buildDashboard = buildDashboard;
       '</div>' +
     '</div>';
 
+  // Force body layout — QB's appoverview overrides our CSS
+  document.documentElement.style.cssText = 'overflow:hidden!important;height:100vh!important;min-height:0';
+  document.body.style.cssText = 'overflow:hidden!important;height:100vh!important;margin:0;display:flex;flex-direction:column;min-height:0;font-family:Aileron,DM Sans,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text)';
+
   // Wire up search
   var searchInput = document.getElementById('appSearchInput');
   if (searchInput) {
