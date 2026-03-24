@@ -1690,7 +1690,7 @@ window.ppInProdCollapseAll = function() {
 // ─── REGISTER ─────────────────────────────────────────────────
 registerTab('preproduction', {
   icon: '', label: 'Projects',
-  roles: ALL_ROLES,
+  roles: STANDARD_ROLES,
   onInit: function() {
     var style = document.createElement('style');
     style.textContent = ppCSS;

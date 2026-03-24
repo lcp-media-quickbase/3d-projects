@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.21.0';
+var LCP_VERSION = 'v3.22.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -507,6 +507,8 @@ var ROLE = {
   SENIORS: 14,
   ADMIN_COPY: 15
 };
+var ALL_ROLES = [ROLE.VIEWER, ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.SENIORS, ROLE.ADMIN_COPY];
+var STANDARD_ROLES = [ROLE.ADMIN, ROLE.ADMIN_COPY, ROLE.LEADERSHIP, ROLE.SENIORS];
 
 var _currentUser = { email: '', role: null, isAdmin: false, isLeadership: false, isSenior: false };
 
@@ -785,10 +787,9 @@ function renderAppHeader() {
       (_currentUser.isAdmin ? '<select id="viewAsSelect" class="form-select" style="font-size:11px;padding:4px 8px;width:auto;min-width:140px;border-color:var(--border);background:var(--surface2);color:var(--text-muted)" onchange="viewAsChanged(this.value)">' +
         '<option value="me">Myself</option>' +
         '<optgroup label="Test as Role">' +
-          '<option value="role:10">Viewer</option>' +
           '<option value="role:13">Poland Leadership</option>' +
           '<option value="role:14">Poland Seniors</option>' +
-          '<option value="role:12">Administrator</option>' +
+          '<option value="role:10">Poland Artists</option>' +
         '</optgroup>' +
         '<optgroup label="Test as User" id="viewAsUsers"></optgroup>' +
       '</select>' : '') +
@@ -1085,7 +1086,7 @@ function renderTestBanner() {
   }
   if (_currentUser.role !== _realUser.role) {
     var roleNames = {};
-    roleNames[ROLE.VIEWER] = 'Viewer';
+    roleNames[ROLE.VIEWER] = 'Poland Artists';
     roleNames[ROLE.ADMIN] = 'Administrator';
     roleNames[ROLE.LEADERSHIP] = 'Poland Leadership';
     roleNames[ROLE.SENIORS] = 'Poland Seniors';
@@ -1123,38 +1124,17 @@ function populateViewAsUsers() {
 }
 
 async function loadQBUsers() {
-  console.log('[ViewAs] Loading users...');
-  if (_qbUsers.length > 0) { console.log('[ViewAs] Already loaded', _qbUsers.length); populateViewAsUsers(); return; }
+  console.log('[ViewAs] Loading users from People table...');
+  if (_qbUsers.length > 0) { populateViewAsUsers(); return; }
   try {
-    var resp = await fetch('https://api.quickbase.com/v1/records/query', {
-      method: 'POST',
-      headers: {
-        'QB-Realm-Hostname': 'lcpmedia.quickbase.com',
-        'Authorization': 'QB-USER-TOKEN b9ytiq_f9q7_0_chzcq48b95rhwnbqt4b6jfiuyp',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: 'bu83am495',
-        select: [3, 7, 8, 9, 23],
-        where: "{23.EX.'Paid seat'}",
-        sortBy: [{ fieldId: 7, order: 'ASC' }],
-        options: { top: 200 }
-      })
-    });
-    if (!resp.ok) return;
-    var data = await resp.json();
-    _qbUsers = (data.data || []).map(function(r) {
-      return {
-        id: r[3] ? String(r[3].value) : '',
-        email: r[9] ? r[9].value : '',
-        name: ((r[7] ? r[7].value : '') + ' ' + (r[8] ? r[8].value : '')).trim(),
-        access: r[23] ? r[23].value : ''
-      };
-    }).filter(function(u) { return u.email; });
-
+    var people = await getCachedPeople();
+    _qbUsers = people.filter(function(p) {
+      return p.active && p.email;
+    }).map(function(p) {
+      return { id: String(p.id), email: p.email, name: p.name };
+    }).sort(function(a,b) { return a.name.localeCompare(b.name); });
     populateViewAsUsers();
-    console.log('[ViewAs] Loaded', _qbUsers.length, 'users:', _qbUsers.slice(0,3).map(function(u){return u.name;}).join(', '));
-    populateViewAsUsers();
+    console.log('[ViewAs] Loaded', _qbUsers.length, 'users from People table');
   } catch(e) { console.warn('[ViewAs] Could not load users:', e.message); }
 }
 
