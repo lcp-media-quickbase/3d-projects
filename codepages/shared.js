@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.22.1';
+var LCP_VERSION = 'v3.23.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -505,9 +505,10 @@ var ROLE = {
   ADMIN: 12,
   LEADERSHIP: 13,
   SENIORS: 14,
-  ADMIN_COPY: 15
+  ADMIN_COPY: 15,
+  ARTISTS: 16
 };
-var ALL_ROLES = [ROLE.VIEWER, ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.SENIORS, ROLE.ADMIN_COPY];
+var ALL_ROLES = [ROLE.VIEWER, ROLE.ADMIN, ROLE.LEADERSHIP, ROLE.SENIORS, ROLE.ADMIN_COPY, ROLE.ARTISTS];
 var STANDARD_ROLES = [ROLE.ADMIN, ROLE.ADMIN_COPY, ROLE.LEADERSHIP, ROLE.SENIORS];
 
 var _currentUser = { email: '', role: null, isAdmin: false, isLeadership: false, isSenior: false };
@@ -531,6 +532,7 @@ function detectRole() {
   _currentUser.isAdmin = (_currentUser.role === ROLE.ADMIN || _currentUser.role === ROLE.ADMIN_COPY);
   _currentUser.isLeadership = (_currentUser.role === ROLE.LEADERSHIP);
   _currentUser.isSenior = (_currentUser.role === ROLE.SENIORS);
+  _currentUser.isArtist = (_currentUser.role === ROLE.ARTISTS || _currentUser.role === ROLE.VIEWER);
 
   console.log('[Role] Detected:', _currentUser.role, 'Admin:', _currentUser.isAdmin, 'Email:', _currentUser.email || '(unknown)');
 
@@ -800,7 +802,7 @@ function renderAppHeader() {
         '<optgroup label="Test as Role">' +
           '<option value="role:13">Poland Leadership</option>' +
           '<option value="role:14">Poland Seniors</option>' +
-          '<option value="role:10">Poland Artists</option>' +
+          '<option value="role:16">Poland Artists</option>' +
         '</optgroup>' +
         '<optgroup label="Test as User" id="viewAsUsers"></optgroup>' +
       '</select>' : '') +
@@ -1041,6 +1043,7 @@ function viewAsChanged(val) {
       _currentUser.isAdmin = (_realUser.role === ROLE.ADMIN || _realUser.role === ROLE.ADMIN_COPY);
       _currentUser.isLeadership = (_realUser.role === ROLE.LEADERSHIP);
       _currentUser.isSenior = (_realUser.role === ROLE.SENIORS);
+      _currentUser.isArtist = (_realUser.role === ROLE.ARTISTS || _realUser.role === ROLE.VIEWER);
       _realUser = null;
     }
     console.log('[ViewAs] Restored to real user');
@@ -1061,6 +1064,7 @@ function viewAsChanged(val) {
     _currentUser.isAdmin = (r === ROLE.ADMIN || r === ROLE.ADMIN_COPY);
     _currentUser.isLeadership = (r === ROLE.LEADERSHIP);
     _currentUser.isSenior = (r === ROLE.SENIORS);
+    _currentUser.isArtist = (r === ROLE.ARTISTS || r === ROLE.VIEWER);
     console.log('[ViewAs] Testing as role:', r);
   } else if (val.indexOf('user:') === 0) {
     var email = val.split(':')[1];
@@ -1097,7 +1101,8 @@ function renderTestBanner() {
   }
   if (_currentUser.role !== _realUser.role) {
     var roleNames = {};
-    roleNames[ROLE.VIEWER] = 'Poland Artists';
+    roleNames[ROLE.VIEWER] = 'Viewer';
+    roleNames[ROLE.ARTISTS] = 'Poland Artists';
     roleNames[ROLE.ADMIN] = 'Administrator';
     roleNames[ROLE.LEADERSHIP] = 'Poland Leadership';
     roleNames[ROLE.SENIORS] = 'Poland Seniors';
