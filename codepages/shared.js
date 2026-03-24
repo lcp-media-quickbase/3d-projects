@@ -34,7 +34,7 @@ var FIELD = {
     project:8, projectName:20, projectNum:12, projectStage:13, projectPod:21,
     start:17, end:18, hours:9, desc:16, workType:19, draft:20,
     priority:21, weekend:11, tdId:6, color:24 },
-  PEOPLE: { id:3, name:7, email:8, role:11, active:19, podName:22, tdId:23, partTime:24, hourlyRate:43 },
+  PEOPLE: { id:3, name:7, email:8, role:11, active:19, podName:22, tdId:23, partTime:24, hourlyRate:43, qbRoleId:44 },
   PROJECTS: { id:3, name:19, reviewStudio:20, number:23, folder:24, type:26, stage:27, pod:82, deal:52, opportunity:67, fid36:36, fid49:49, fid54:54, fid55:55, fid62:62, fid85:85, teamChannel:91, earliestBooking:99, latestBooking:100, age:109, fid116:116, fid118:118, techAssets:119, rfpDate:120, sendToProd:141, fid137:137, tdProjectId:94 },
   MILESTONES: { id:3, tdId:6, name:7, projectTdId:8, start:9, end:10, desc:11, projectName:12, pod:13 },
   PODS: { id:3, name:6, tdId:11 },
@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.25.1';
+var LCP_VERSION = 'v3.26.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -335,14 +335,15 @@ async function loadPeople(activeOnly=true) {
   const where = activeOnly ? `{${FIELD.PEOPLE.active}.EX.true}` : null;
   const rows = await qbQueryAll(TABLES.people,
     [FIELD.PEOPLE.id, FIELD.PEOPLE.name, FIELD.PEOPLE.email, FIELD.PEOPLE.role,
-     FIELD.PEOPLE.active, FIELD.PEOPLE.podName, FIELD.PEOPLE.tdId, FIELD.PEOPLE.partTime, FIELD.PEOPLE.hourlyRate],
+     FIELD.PEOPLE.active, FIELD.PEOPLE.podName, FIELD.PEOPLE.tdId, FIELD.PEOPLE.partTime, FIELD.PEOPLE.hourlyRate, FIELD.PEOPLE.qbRoleId],
     where);
   return rows.map(r => ({
     id: fv(r, FIELD.PEOPLE.id), name: fv(r, FIELD.PEOPLE.name),
     email: fv(r, FIELD.PEOPLE.email), role: fv(r, FIELD.PEOPLE.role),
     active: fv(r, FIELD.PEOPLE.active), pod: fv(r, FIELD.PEOPLE.podName) || 'Unknown',
     tdId: fv(r, FIELD.PEOPLE.tdId), partTime: fv(r, FIELD.PEOPLE.partTime),
-    hourlyRate: parseFloat(fv(r, FIELD.PEOPLE.hourlyRate)) || 0
+    hourlyRate: parseFloat(fv(r, FIELD.PEOPLE.hourlyRate)) || 0,
+    qbRoleId: parseInt(fv(r, FIELD.PEOPLE.qbRoleId)) || 0
   })).sort((a,b) => a.pod.localeCompare(b.pod) || a.name.localeCompare(b.name));
 }
 
@@ -592,7 +593,21 @@ async function resolveCurrentUser() {
   } catch(e) { console.warn('[Auth] Could not resolve user email:', e); }
   console.log('[Role] Resolved email:', _currentUser.email || '(still unknown)');
 
-  // Role is now detected from temp token response in _getTempToken()
+  // Look up role from People table using resolved email
+  if (_currentUser.email) {
+    try {
+      var allPeople = await getCachedPeople();
+      var me = allPeople.find(function(p) { return p.email && p.email.toLowerCase() === _currentUser.email.toLowerCase(); });
+      if (me && me.qbRoleId && me.qbRoleId !== _currentUser.role) {
+        console.log('[Role] Corrected from People table:', _currentUser.role, '→', me.qbRoleId, '(' + me.name + ')');
+        _currentUser.role = me.qbRoleId;
+        _currentUser.isAdmin = (me.qbRoleId === ROLE.ADMIN || me.qbRoleId === ROLE.ADMIN_COPY);
+        _currentUser.isLeadership = (me.qbRoleId === ROLE.LEADERSHIP);
+        _currentUser.isSenior = (me.qbRoleId === ROLE.SENIORS);
+        _currentUser.isArtist = (me.qbRoleId === ROLE.ARTISTS || me.qbRoleId === ROLE.VIEWER);
+      }
+    } catch(e) { console.warn('[Role] Could not look up role from People:', e.message); }
+  }
 
   // Re-render nav with correct role
   var visibleNow = getVisibleTabs();
