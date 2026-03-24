@@ -178,16 +178,31 @@ window.buildDashboard = buildDashboard;
     });
   }
 
-  // Determine starting tab from URL hash or default
-  var hash = window.location.hash.replace('#', '');
-  var visible = getVisibleTabs();
-  var startTab = (hash && _tabs[hash]) ? hash : (visible.length ? visible[0].id : null);
-  if (startTab) switchTab(startTab);
+  // If role is unknown (gReqRole was null), resolve user FIRST before showing tabs
+  var _roleKnown = (_currentUser.role !== ROLE.ADMIN) || (typeof gReqRole !== 'undefined' && gReqRole);
 
-  // Resolve user identity in background
-  if (typeof resolveCurrentUser === 'function') resolveCurrentUser();
-  if (typeof loadQBUsers === 'function') loadQBUsers();
-  if (typeof renderTestBanner === 'function') renderTestBanner();
+  async function _finishBuild() {
+    if (!_roleKnown) {
+      // Show loading state on sidebar while resolving role
+      var sidebar = document.querySelector('.sidebar');
+      if (sidebar) sidebar.style.opacity = '0.3';
+      await resolveCurrentUser();
+      // Rebuild nav with correct role
+      var nav = document.querySelector('.sidebar');
+      if (nav) { nav.outerHTML = renderDashboardNav(); }
+    } else {
+      if (typeof resolveCurrentUser === 'function') resolveCurrentUser();
+    }
+
+    var hash = window.location.hash.replace('#', '');
+    var visible = getVisibleTabs();
+    var startTab = (hash && _tabs[hash]) ? hash : (visible.length ? visible[0].id : null);
+    if (startTab) switchTab(startTab);
+
+    if (typeof loadQBUsers === 'function') loadQBUsers();
+    if (typeof renderTestBanner === 'function') renderTestBanner();
+  }
+  _finishBuild();
 
   // Handle back/forward browser navigation
   window.addEventListener('hashchange', function() {
