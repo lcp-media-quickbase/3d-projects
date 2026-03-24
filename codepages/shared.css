@@ -349,7 +349,6 @@ body {
   background: rgba(0,0,0,0.6);
   z-index: 500;
   align-items: center;
-  justify-content: center;
 }
 .modal-overlay.visible { display: flex; }
 .modal, .modal-content {
