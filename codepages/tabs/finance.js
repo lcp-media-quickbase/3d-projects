@@ -314,14 +314,14 @@ window.finEditAssets = function(projId, currentCount) {
     if (isNaN(count) || count < 0) { restore(currentCount); return; }
     // Update local cache and re-render (recalculates Asset Cost column too)
     var proj = fProjects.find(function(x) { return x.id == projId; });
-    if (proj) proj.visualAssets = count;
+    if (proj) proj.assetCount = count;
     renderBudgets();
-    var rec = {}; rec[FIELD.PROJECTS.id] = {value: parseInt(projId, 10)}; rec[FIELD.PROJECTS.fid118] = {value: count};
+    var rec = {}; rec[FIELD.PROJECTS.id] = {value: parseInt(projId, 10)}; rec[FIELD.PROJECTS.assetCount] = {value: count};
     qbUpsert(TABLES.projects, [rec])
       .then(function() { showToast('Asset count updated', 'success'); })
       .catch(function(e) {
         showToast('Failed to save asset count', 'error'); console.error(e);
-        if (proj) proj.visualAssets = currentCount;
+        if (proj) proj.assetCount = currentCount;
         renderBudgets();
       });
   };
@@ -395,8 +395,8 @@ function renderBudgets() {
     if (matched && matched.deal) {
       var scope = fScopeByDeal[String(matched.deal)];
       if (scope) dealCost = scope.totalValue;
-      // Manual override (visualAssets) takes priority over scope record count
-      assets = matched.visualAssets || (scope ? scope.assets : 0);
+      // Priority: manual assetCount (fid150) → summary visualAssets (fid118) → scope record count
+      assets = matched.assetCount || matched.visualAssets || (scope ? scope.assets : 0);
     }
 
     var budget30 = dealCost * 0.30;
