@@ -129,6 +129,10 @@ function renderProjects() {
 function renderPods() {
   var podGroups = {};
   aPeople.filter(function(p){return p.active;}).forEach(function(p){(podGroups[p.pod]=podGroups[p.pod]||[]).push(p);});
+
+  // Build pod options for dropdown
+  var podNames = Object.keys(podGroups).sort();
+
   var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">';
   Object.entries(podGroups).sort(function(a,b){return a[0].localeCompare(b[0]);}).forEach(function(entry){
     var pod=entry[0], members=entry[1], c=podColor(pod);
@@ -138,10 +142,19 @@ function renderPods() {
       '<span class="badge badge-neutral" style="margin-left:auto">'+members.length+' members</span></div>';
     members.forEach(function(m){
       var ini=m.name.split(' ').map(function(w){return (w[0]||'');}).join('').slice(0,2);
+      // Build "Move to" dropdown with other pods
+      var moveOpts = podNames.filter(function(p){return p !== pod;}).map(function(p){
+        return '<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>';
+      }).join('');
+
       html += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">'+
         '<div style="width:28px;height:28px;border-radius:50%;background:'+c+';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0">'+ini+'</div>'+
-        '<div><div style="font-size:13px;font-weight:500;color:var(--text)">'+escapeHtml(m.name)+'</div>'+
-        '<div style="font-size:11px;color:var(--text-dim)">'+(escapeHtml(m.email)||'No email')+'</div></div></div>';
+        '<div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">'+escapeHtml(m.name)+'</div>'+
+        '<div style="font-size:11px;color:var(--text-dim)">'+(escapeHtml(m.email)||'No email')+'</div></div>'+
+        '<select class="form-select" style="font-size:10px;padding:2px 4px;width:auto;min-width:90px;border-color:var(--border);background:var(--surface2);color:var(--text-dim)" onchange="adminMovePerson('+m.id+',this.value,this)">'+
+          '<option value="">Move to...</option>'+moveOpts+
+        '</select>'+
+      '</div>';
     });
     html += '</div>';
   });
@@ -333,6 +346,40 @@ window.adminSaveProject = saveProject;
 window.adminCreatePerson = createPerson;
 window.adminCreateProject = createProject;
 window.adminCloseModal = function(){document.getElementById('adminModal').classList.remove('visible');};
+
+
+window.adminMovePerson = async function(personId, newPodName, selectEl) {
+  if (!newPodName) return;
+  // Find the pod's TeamDeck ID
+  var pods = await getCachedPods();
+  var targetPod = pods.find(function(p) { return p.name === newPodName; });
+  if (!targetPod || !targetPod.tdId) {
+    showToast('Could not find pod: ' + newPodName, 'error');
+    selectEl.value = '';
+    return;
+  }
+
+  var person = aPeople.find(function(p) { return p.id === personId; });
+  if (!confirm('Move ' + (person ? person.name : 'this person') + ' to ' + newPodName + '?')) {
+    selectEl.value = '';
+    return;
+  }
+
+  try {
+    await qbUpsert(TABLES.people, [{
+      3: {value: personId},
+      21: {value: targetPod.tdId}
+    }], 3);
+    showToast((person ? person.name : 'Person') + ' moved to ' + newPodName, 'success');
+    // Refresh data
+    invalidateCache('people');
+    aPeople = await getCachedPeople();
+    renderPods();
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+    selectEl.value = '';
+  }
+};
 
 registerTab('admin', {
   icon: '⚙️', label: 'Admin',
