@@ -91,13 +91,11 @@ function renderPeople() {
   });
   document.getElementById('adminPeopleBody').innerHTML = filtered.map(function(p){
     var pc = podColor(p.pod);
-    return '<tr><td class="cell-mono">'+p.id+'</td>'+
-      '<td class="cell-name">'+escapeHtml(p.name)+'</td>'+
+    return '<tr><td class="cell-name">'+escapeHtml(p.name)+'</td>'+
       '<td>'+(escapeHtml(p.email)||'<span style="color:var(--text-dim)">—</span>')+'</td>'+
       '<td><span class="pod-dot-lg" style="background:'+pc+'"></span>'+escapeHtml(p.pod)+'</td>'+
       '<td>'+(escapeHtml(p.role)||'—')+'</td>'+
       '<td><span class="badge '+(p.active?'badge-success':'badge-neutral')+'">'+(p.active?'Active':'Inactive')+'</span></td>'+
-      '<td class="cell-mono">'+(p.tdId||'—')+'</td>'+
       '<td><div class="row-actions">'+
         '<button class="btn btn-sm" onclick="adminEditPerson('+p.id+')">Edit</button>'+
         '<button class="btn btn-sm '+(p.active?'btn-danger':'btn-success')+'" onclick="adminToggleActive('+p.id+')">'+(p.active?'Deactivate':'Activate')+'</button>'+
