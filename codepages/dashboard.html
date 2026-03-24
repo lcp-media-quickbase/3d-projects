@@ -33,6 +33,7 @@
     flex: 1;
     overflow: hidden;
     min-height: 0;
+    height: calc(100vh - 44px) !important;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -162,6 +163,20 @@ window.buildDashboard = buildDashboard;
         '</div>' +
       '</div>' +
     '</div>';
+
+  // Strip any inline height QB's Remix UI might add to app-body
+  var _appBody = document.querySelector('.app-body');
+  if (_appBody) _appBody.style.height = '';
+  // Also observe for QB adding it back
+  if (_appBody && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(function(muts) {
+      muts.forEach(function(m) {
+        if (m.attributeName === 'style' && _appBody.style.height && _appBody.style.height.indexOf('100vh') !== -1) {
+          _appBody.style.height = '';
+        }
+      });
+    }).observe(_appBody, { attributes: true });
+  }
 
   // Wire up search
   var searchInput = document.getElementById('appSearchInput');
