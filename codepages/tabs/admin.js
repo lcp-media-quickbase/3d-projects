@@ -20,8 +20,7 @@ function escXml(s) {
 }
 
 async function qbProvisionUser(email, fname, lname) {
-  var ticket = (typeof gReqTkt !== 'undefined' && gReqTkt) ? gReqTkt : '';
-  var body = '<qdbapi><ticket>'+escXml(ticket)+'</ticket>'+
+  var body = '<qdbapi>'+
     '<email>'+escXml(email)+'</email>'+
     '<fname>'+escXml(fname)+'</fname>'+
     '<lname>'+escXml(lname)+'</lname></qdbapi>';
@@ -41,8 +40,7 @@ async function qbProvisionUser(email, fname, lname) {
 }
 
 async function qbGetUserIdByEmail(email) {
-  var ticket = (typeof gReqTkt !== 'undefined' && gReqTkt) ? gReqTkt : '';
-  var resp = await fetch('https://'+QB_REALM+'/db/main?a=API_GetUserInfo&email='+encodeURIComponent(email)+'&ticket='+encodeURIComponent(ticket), {
+  var resp = await fetch('https://'+QB_REALM+'/db/main?a=API_GetUserInfo&email='+encodeURIComponent(email), {
     credentials: 'include'
   });
   var text = await resp.text();
