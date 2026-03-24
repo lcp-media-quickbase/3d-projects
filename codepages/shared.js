@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.24.1';
+var LCP_VERSION = 'v3.25.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -123,6 +123,7 @@ var _userToken = '';     // Only used in token mode
 
 // Temp token cache: { tableId: { token, expiresAt } }
 var _tempTokens = {};
+var _roleFromToken = false;
 var TEMP_TOKEN_LIFETIME = 4 * 60 * 1000; // Refresh at 4 min (expires at 5)
 
 /**
@@ -563,25 +564,7 @@ async function resolveCurrentUser() {
   } catch(e) { console.warn('[Auth] Could not resolve user email:', e); }
   console.log('[Role] Resolved email:', _currentUser.email || '(still unknown)');
 
-  // Query actual role from QB XML API
-  try {
-    var roleResp = await fetch('/db/bu8tkk77g?a=API_GetUserRole', { credentials: 'include' });
-    if (roleResp.ok) {
-      var roleText = await roleResp.text();
-      var roleMatch = roleText.match(/<roleid>(\d+)<\/roleid>/);
-      if (roleMatch) {
-        var actualRole = parseInt(roleMatch[1]);
-        if (actualRole !== _currentUser.role) {
-          console.log('[Role] Corrected from', _currentUser.role, 'to', actualRole);
-          _currentUser.role = actualRole;
-          _currentUser.isAdmin = (actualRole === ROLE.ADMIN || actualRole === ROLE.ADMIN_COPY);
-          _currentUser.isLeadership = (actualRole === ROLE.LEADERSHIP);
-          _currentUser.isSenior = (actualRole === ROLE.SENIORS);
-          _currentUser.isArtist = (actualRole === ROLE.ARTISTS || actualRole === ROLE.VIEWER);
-        }
-      }
-    }
-  } catch(e) { console.warn('[Role] Could not query actual role:', e.message); }
+  // Role is now detected from temp token response in _getTempToken()
 
   // Re-render nav with correct role
   var visibleNow = getVisibleTabs();
