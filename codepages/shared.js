@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.22.0';
+var LCP_VERSION = 'v3.22.1';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -533,6 +533,7 @@ function detectRole() {
   _currentUser.isSenior = (_currentUser.role === ROLE.SENIORS);
 
   console.log('[Role] Detected:', _currentUser.role, 'Admin:', _currentUser.isAdmin, 'Email:', _currentUser.email || '(unknown)');
+
   return _currentUser;
 }
 
@@ -559,6 +560,16 @@ async function resolveCurrentUser() {
     }
   } catch(e) { console.warn('[Auth] Could not resolve user email:', e); }
   console.log('[Role] Resolved email:', _currentUser.email || '(still unknown)');
+  // Re-render nav in case role wasn't detected during initial build
+  var visibleNow = getVisibleTabs();
+  console.log('[Role] Visible tabs:', visibleNow.map(function(t){return t.id;}).join(', '));
+  var nav = document.querySelector('.sidebar');
+  if (nav) nav.outerHTML = renderDashboardNav();
+  // If current tab is no longer visible, switch to first visible
+  if (_activeTab) {
+    var stillVisible = visibleNow.find(function(t){return t.id === _activeTab;});
+    if (!stillVisible && visibleNow.length) switchTab(visibleNow[0].id);
+  }
 }
 
 function currentUser() { return _currentUser; }
