@@ -683,13 +683,13 @@ async function loadProjectScope(dealId) {
       '{' + FIELD.SCOPE.projectRef + '.EX.' + dealId + '}');
     return rows.map(function(r) {
       return {
-        product: val(r, FIELD.SCOPE.product),
-        asset: val(r, FIELD.SCOPE.assetName),
-        qty: val(r, FIELD.SCOPE.quantity),
-        stills: val(r, FIELD.SCOPE.stillsCount),
-        panos: val(r, FIELD.SCOPE.panosCount),
-        price: val(r, FIELD.SCOPE.pricePer),
-        total: val(r, FIELD.SCOPE.totalValue)
+        product: fv(r, FIELD.SCOPE.product),
+        asset: fv(r, FIELD.SCOPE.assetName),
+        qty: fv(r, FIELD.SCOPE.quantity),
+        stills: fv(r, FIELD.SCOPE.stillsCount),
+        panos: fv(r, FIELD.SCOPE.panosCount),
+        price: fv(r, FIELD.SCOPE.pricePer),
+        total: fv(r, FIELD.SCOPE.totalValue)
       };
     });
   } catch(e) { console.warn('[Scheduler] Could not load scope:', e); return []; }

@@ -309,11 +309,11 @@ async function loadPeople(activeOnly=true) {
      FIELD.PEOPLE.active, FIELD.PEOPLE.podName, FIELD.PEOPLE.tdId, FIELD.PEOPLE.partTime, FIELD.PEOPLE.hourlyRate],
     where);
   return rows.map(r => ({
-    id: val(r, FIELD.PEOPLE.id), name: val(r, FIELD.PEOPLE.name),
-    email: val(r, FIELD.PEOPLE.email), role: val(r, FIELD.PEOPLE.role),
-    active: val(r, FIELD.PEOPLE.active), pod: val(r, FIELD.PEOPLE.podName) || 'Unknown',
-    tdId: val(r, FIELD.PEOPLE.tdId), partTime: val(r, FIELD.PEOPLE.partTime),
-    hourlyRate: parseFloat(val(r, FIELD.PEOPLE.hourlyRate)) || 0
+    id: fv(r, FIELD.PEOPLE.id), name: fv(r, FIELD.PEOPLE.name),
+    email: fv(r, FIELD.PEOPLE.email), role: fv(r, FIELD.PEOPLE.role),
+    active: fv(r, FIELD.PEOPLE.active), pod: fv(r, FIELD.PEOPLE.podName) || 'Unknown',
+    tdId: fv(r, FIELD.PEOPLE.tdId), partTime: fv(r, FIELD.PEOPLE.partTime),
+    hourlyRate: parseFloat(fv(r, FIELD.PEOPLE.hourlyRate)) || 0
   })).sort((a,b) => a.pod.localeCompare(b.pod) || a.name.localeCompare(b.name));
 }
 
@@ -325,11 +325,11 @@ async function loadProjects(excludeComplete=true) {
      FIELD.PROJECTS.deal, FIELD.PROJECTS.fid116, FIELD.PROJECTS.fid118],
     where);
   return rows.map(r => ({
-    id: val(r, FIELD.PROJECTS.id), name: val(r, FIELD.PROJECTS.name),
-    number: val(r, FIELD.PROJECTS.number), type: val(r, FIELD.PROJECTS.type),
-    stage: val(r, FIELD.PROJECTS.stage), pod: val(r, FIELD.PROJECTS.pod),
-    tdProjectId: val(r, FIELD.PROJECTS.tdProjectId),
-    deal: val(r, FIELD.PROJECTS.deal), receivedAssets: parseFloat(val(r, FIELD.PROJECTS.fid116)) || 0, visualAssets: parseFloat(val(r, FIELD.PROJECTS.fid118)) || 0
+    id: fv(r, FIELD.PROJECTS.id), name: fv(r, FIELD.PROJECTS.name),
+    number: fv(r, FIELD.PROJECTS.number), type: fv(r, FIELD.PROJECTS.type),
+    stage: fv(r, FIELD.PROJECTS.stage), pod: fv(r, FIELD.PROJECTS.pod),
+    tdProjectId: fv(r, FIELD.PROJECTS.tdProjectId),
+    deal: fv(r, FIELD.PROJECTS.deal), receivedAssets: parseFloat(fv(r, FIELD.PROJECTS.fid116)) || 0, visualAssets: parseFloat(fv(r, FIELD.PROJECTS.fid118)) || 0
   })).sort((a,b) => (b.number||0) - (a.number||0));
 }
 
@@ -337,8 +337,8 @@ async function loadPods() {
   const rows = await qbQueryAll(TABLES.pods,
     [FIELD.PODS.id, FIELD.PODS.name, FIELD.PODS.tdId]);
   return rows.map(r => ({
-    id: val(r, FIELD.PODS.id), name: val(r, FIELD.PODS.name),
-    tdId: val(r, FIELD.PODS.tdId)
+    id: fv(r, FIELD.PODS.id), name: fv(r, FIELD.PODS.name),
+    tdId: fv(r, FIELD.PODS.tdId)
   }));
 }
 
@@ -355,21 +355,21 @@ async function loadVacations(startDate, endDate) {
     where);
   return rows.map(function(r) {
     return {
-      id: val(r, FIELD.VACATION.id),
-      personKey: String(val(r, FIELD.VACATION.personTdId)),
-      personName: val(r, FIELD.VACATION.personName),
-      personPod: val(r, FIELD.VACATION.personPod),
-      start: val(r, FIELD.VACATION.start),
-      end: val(r, FIELD.VACATION.end),
-      type: val(r, FIELD.VACATION.type),
-      status: val(r, FIELD.VACATION.status),
-      notes: val(r, FIELD.VACATION.notes)
+      id: fv(r, FIELD.VACATION.id),
+      personKey: String(fv(r, FIELD.VACATION.personTdId)),
+      personName: fv(r, FIELD.VACATION.personName),
+      personPod: fv(r, FIELD.VACATION.personPod),
+      start: fv(r, FIELD.VACATION.start),
+      end: fv(r, FIELD.VACATION.end),
+      type: fv(r, FIELD.VACATION.type),
+      status: fv(r, FIELD.VACATION.status),
+      notes: fv(r, FIELD.VACATION.notes)
     };
   });
 }
 
 // ─── UTILITIES ─────────────────────────────────────────────
-function val(record, fieldId) {
+function fv(record, fieldId) {
   const v = record[fieldId]?.value;
   if (v == null) return '';
   if (typeof v === 'object') return v.name || v.email || JSON.stringify(v);
@@ -660,14 +660,14 @@ async function getCachedAssignments(startDate, endDate, force) {
 
   c.data = records.records.map(function(r) {
     return {
-      id: val(r,FIELD.ASSIGN.id), tdId: val(r,FIELD.ASSIGN.tdId), personKey: String(val(r,FIELD.ASSIGN.person)),
-      personName: val(r,FIELD.ASSIGN.personName), personPod: val(r,FIELD.ASSIGN.personPod),
-      projectId: val(r,FIELD.ASSIGN.project), projectName: val(r,FIELD.ASSIGN.projectName),
-      projectNum: null, start: val(r,FIELD.ASSIGN.start),
-      end: val(r,FIELD.ASSIGN.end), hours: val(r,FIELD.ASSIGN.hours),
-      desc: val(r,FIELD.ASSIGN.desc), workType: '',
+      id: fv(r,FIELD.ASSIGN.id), tdId: fv(r,FIELD.ASSIGN.tdId), personKey: String(fv(r,FIELD.ASSIGN.person)),
+      personName: fv(r,FIELD.ASSIGN.personName), personPod: fv(r,FIELD.ASSIGN.personPod),
+      projectId: fv(r,FIELD.ASSIGN.project), projectName: fv(r,FIELD.ASSIGN.projectName),
+      projectNum: null, start: fv(r,FIELD.ASSIGN.start),
+      end: fv(r,FIELD.ASSIGN.end), hours: fv(r,FIELD.ASSIGN.hours),
+      desc: fv(r,FIELD.ASSIGN.desc), workType: '',
       draft: '', priority: '',
-      weekend: val(r,FIELD.ASSIGN.weekend)
+      weekend: fv(r,FIELD.ASSIGN.weekend)
     };
   });
   c.range = { start: startDate, end: endDate };
@@ -979,13 +979,13 @@ async function getCachedMilestones(startDate, endDate, force) {
     [{fieldId: FIELD.MILESTONES.start, order: 'ASC'}], 500);
   c.data = (records.records || []).map(function(r) {
     return {
-      id: val(r, FIELD.MILESTONES.id),
-      projectTdId: val(r, FIELD.MILESTONES.projectTdId),
-      projectName: val(r, FIELD.MILESTONES.projectName),
-      pod: val(r, FIELD.MILESTONES.pod),
-      name: val(r, FIELD.MILESTONES.name),
-      start: val(r, FIELD.MILESTONES.start),
-      end: val(r, FIELD.MILESTONES.end)
+      id: fv(r, FIELD.MILESTONES.id),
+      projectTdId: fv(r, FIELD.MILESTONES.projectTdId),
+      projectName: fv(r, FIELD.MILESTONES.projectName),
+      pod: fv(r, FIELD.MILESTONES.pod),
+      name: fv(r, FIELD.MILESTONES.name),
+      start: fv(r, FIELD.MILESTONES.start),
+      end: fv(r, FIELD.MILESTONES.end)
     };
   });
   c.range = { start: startDate, end: endDate };

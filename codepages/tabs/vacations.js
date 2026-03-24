@@ -115,15 +115,15 @@ async function loadVacData() {
 
   vVacations = (vacResult.records || []).map(function(r) {
     return {
-      id: val(r, FIELD.VACATION.id),
-      personKey: String(val(r, FIELD.VACATION.person) || val(r, FIELD.VACATION.personTdId)),
-      personName: val(r, FIELD.VACATION.personName),
-      personPod: val(r, FIELD.VACATION.personPod),
-      start: val(r, FIELD.VACATION.start),
-      end: val(r, FIELD.VACATION.end),
-      type: val(r, FIELD.VACATION.type),
-      status: val(r, FIELD.VACATION.status),
-      notes: val(r, FIELD.VACATION.notes)
+      id: fv(r, FIELD.VACATION.id),
+      personKey: String(fv(r, FIELD.VACATION.person) || fv(r, FIELD.VACATION.personTdId)),
+      personName: fv(r, FIELD.VACATION.personName),
+      personPod: fv(r, FIELD.VACATION.personPod),
+      start: fv(r, FIELD.VACATION.start),
+      end: fv(r, FIELD.VACATION.end),
+      type: fv(r, FIELD.VACATION.type),
+      status: fv(r, FIELD.VACATION.status),
+      notes: fv(r, FIELD.VACATION.notes)
     };
   });
 
@@ -136,12 +136,12 @@ async function loadVacData() {
       [{fieldId: FIELD.PTO.personName, order: 'ASC'}], 100);
     vPtoBalances = {};
     (ptoResult.records || []).forEach(function(r) {
-      var tdId = String(val(r, FIELD.PTO.personTdId));
+      var tdId = String(fv(r, FIELD.PTO.personTdId));
       vPtoBalances[tdId] = {
-        name: val(r, FIELD.PTO.personName),
-        allocation: parseFloat(val(r, FIELD.PTO.allocation)) || 160,
-        used: parseFloat(val(r, FIELD.PTO.used)) || 0,
-        pending: parseFloat(val(r, FIELD.PTO.pending)) || 0
+        name: fv(r, FIELD.PTO.personName),
+        allocation: parseFloat(fv(r, FIELD.PTO.allocation)) || 160,
+        used: parseFloat(fv(r, FIELD.PTO.used)) || 0,
+        pending: parseFloat(fv(r, FIELD.PTO.pending)) || 0
       };
     });
   } catch(e) { console.warn('[Vacations] Could not load PTO balances:', e); }
@@ -154,10 +154,10 @@ async function loadVacData() {
 
   vBookings = (bookResult.records || []).map(function(r) {
     return {
-      personKey: String(val(r, FIELD.ASSIGN.person)),
-      start: val(r, FIELD.ASSIGN.start),
-      end: val(r, FIELD.ASSIGN.end),
-      hours: parseFloat(val(r, FIELD.ASSIGN.hours)) || 8
+      personKey: String(fv(r, FIELD.ASSIGN.person)),
+      start: fv(r, FIELD.ASSIGN.start),
+      end: fv(r, FIELD.ASSIGN.end),
+      hours: parseFloat(fv(r, FIELD.ASSIGN.hours)) || 8
     };
   });
 }

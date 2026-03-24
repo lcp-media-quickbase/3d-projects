@@ -100,13 +100,13 @@ async function loadTimesheetData() {
 
   tsBookings = (records.records || []).map(function(r) {
     return {
-      personKey: String(val(r, FIELD.ASSIGN.person)),
-      personName: val(r, FIELD.ASSIGN.personName),
-      personPod: val(r, FIELD.ASSIGN.personPod),
-      project: val(r, FIELD.ASSIGN.projectName),
-      start: val(r, FIELD.ASSIGN.start),
-      end: val(r, FIELD.ASSIGN.end),
-      hours: parseFloat(val(r, FIELD.ASSIGN.hours)) || 8
+      personKey: String(fv(r, FIELD.ASSIGN.person)),
+      personName: fv(r, FIELD.ASSIGN.personName),
+      personPod: fv(r, FIELD.ASSIGN.personPod),
+      project: fv(r, FIELD.ASSIGN.projectName),
+      start: fv(r, FIELD.ASSIGN.start),
+      end: fv(r, FIELD.ASSIGN.end),
+      hours: parseFloat(fv(r, FIELD.ASSIGN.hours)) || 8
     };
   });
 }

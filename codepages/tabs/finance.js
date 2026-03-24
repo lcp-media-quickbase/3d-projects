@@ -74,10 +74,10 @@ async function loadFinData() {
 
   fBookings = (records.records || []).map(function(r) {
     return {
-      personKey: String(val(r, FIELD.ASSIGN.person)),
-      personName: val(r, FIELD.ASSIGN.personName),
-      project: val(r, FIELD.ASSIGN.projectName),
-      hours: parseFloat(val(r, FIELD.ASSIGN.hours)) || 8
+      personKey: String(fv(r, FIELD.ASSIGN.person)),
+      personName: fv(r, FIELD.ASSIGN.personName),
+      project: fv(r, FIELD.ASSIGN.projectName),
+      hours: parseFloat(fv(r, FIELD.ASSIGN.hours)) || 8
     };
   });
 
@@ -89,9 +89,9 @@ async function loadFinData() {
        FIELD.SCOPE.stillsCount, FIELD.SCOPE.panosCount, FIELD.SCOPE.projectRef],
       null); // all scope records
     scopeRows.forEach(function(r) {
-      var dealId = String(val(r, FIELD.SCOPE.projectRef));
+      var dealId = String(fv(r, FIELD.SCOPE.projectRef));
       if (!fScopeByDeal[dealId]) fScopeByDeal[dealId] = {totalValue: 0, assets: 0};
-      fScopeByDeal[dealId].totalValue += parseFloat(val(r, FIELD.SCOPE.totalValue)) || 0;
+      fScopeByDeal[dealId].totalValue += parseFloat(fv(r, FIELD.SCOPE.totalValue)) || 0;
       fScopeByDeal[dealId].assets += 1;
     });
   } catch(e) { console.warn('[Finance] Could not load scope:', e); }

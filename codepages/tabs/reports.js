@@ -164,13 +164,13 @@ async function loadData() {
   ]);
   rPeople = result[0];
   rAssignments = result[1].records.map(function(r){
-    return {id:val(r,FIELD.ASSIGN.id),personKey:String(val(r,FIELD.ASSIGN.person)),
-      personName:val(r,FIELD.ASSIGN.personName),personPod:val(r,FIELD.ASSIGN.personPod),
-      projectId:val(r,FIELD.ASSIGN.project),projectName:val(r,FIELD.ASSIGN.projectName),
-      projectNum:val(r,FIELD.ASSIGN.projectNum),projectPod:val(r,FIELD.ASSIGN.projectPod),
-      start:val(r,FIELD.ASSIGN.start),end:val(r,FIELD.ASSIGN.end),
-      hours:val(r,FIELD.ASSIGN.hours),workType:val(r,FIELD.ASSIGN.workType),
-      weekend:val(r,FIELD.ASSIGN.weekend)};
+    return {id:fv(r,FIELD.ASSIGN.id),personKey:String(fv(r,FIELD.ASSIGN.person)),
+      personName:fv(r,FIELD.ASSIGN.personName),personPod:fv(r,FIELD.ASSIGN.personPod),
+      projectId:fv(r,FIELD.ASSIGN.project),projectName:fv(r,FIELD.ASSIGN.projectName),
+      projectNum:fv(r,FIELD.ASSIGN.projectNum),projectPod:fv(r,FIELD.ASSIGN.projectPod),
+      start:fv(r,FIELD.ASSIGN.start),end:fv(r,FIELD.ASSIGN.end),
+      hours:fv(r,FIELD.ASSIGN.hours),workType:fv(r,FIELD.ASSIGN.workType),
+      weekend:fv(r,FIELD.ASSIGN.weekend)};
   });
 }
 

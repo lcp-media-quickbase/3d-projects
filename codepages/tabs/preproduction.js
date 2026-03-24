@@ -315,21 +315,21 @@ async function ppLoadData() {
 
   ppProjects = rows.map(function(r) {
     return {
-      id:     val(r, FIELD.PROJECTS.id),
-      name:   val(r, FIELD.PROJECTS.name),
-      number: val(r, FIELD.PROJECTS.number),
-      type:   val(r, FIELD.PROJECTS.type),
-      stage:  val(r, FIELD.PROJECTS.stage),
-      pod:    val(r, FIELD.PROJECTS.pod),
-      deal:   val(r, FIELD.PROJECTS.deal),
-      opportunity: val(r, FIELD.PROJECTS.opportunity),
-      fid54:  val(r, FIELD.PROJECTS.fid54),
-      fid62:  val(r, FIELD.PROJECTS.fid62),
+      id:     fv(r, FIELD.PROJECTS.id),
+      name:   fv(r, FIELD.PROJECTS.name),
+      number: fv(r, FIELD.PROJECTS.number),
+      type:   fv(r, FIELD.PROJECTS.type),
+      stage:  fv(r, FIELD.PROJECTS.stage),
+      pod:    fv(r, FIELD.PROJECTS.pod),
+      deal:   fv(r, FIELD.PROJECTS.deal),
+      opportunity: fv(r, FIELD.PROJECTS.opportunity),
+      fid54:  fv(r, FIELD.PROJECTS.fid54),
+      fid62:  fv(r, FIELD.PROJECTS.fid62),
       fid55:  (function(v) {
         if (!v) return '';
         var p = v.split('-');
         return p.length === 3 ? p[1] + '/' + p[2] + '/' + p[0].slice(2) : v;
-      })(val(r, FIELD.PROJECTS.fid55)),
+      })(fv(r, FIELD.PROJECTS.fid55)),
       // Raw HTML from formula/rich-text fields
       fid36:  (r[FIELD.PROJECTS.fid36]  && r[FIELD.PROJECTS.fid36].value)  || '',
       fid49:  (r[FIELD.PROJECTS.fid49]  && r[FIELD.PROJECTS.fid49].value)  || '',
@@ -588,8 +588,8 @@ async function ppLoadScope(dealId) {
       '{' + FIELD.SCOPE.projectRef + '.EX.' + dealId + '}'
     );
     ppScopeData = rows.map(function(r) {
-      var obj = { id: val(r, FIELD.SCOPE.id) };
-      SCOPE_COLS.forEach(function(c) { obj[c.key] = val(r, c.fid); });
+      var obj = { id: fv(r, FIELD.SCOPE.id) };
+      SCOPE_COLS.forEach(function(c) { obj[c.key] = fv(r, c.fid); });
       return obj;
     });
     ppRenderScope();
@@ -702,7 +702,7 @@ async function ppLoadAssets(projId) {
       '{' + FIELD.ASSETS.projectRef + '.EX.' + projId + '}'
     );
     ppAssetsData = rows.map(function(r) {
-      // Multi-select returns an array; val() would JSON.stringify it, so read raw
+      // Multi-select returns an array; fv() would JSON.stringify it, so read raw
       var rawTypes = r[FIELD.ASSETS.assetTypes];
       var typesArr = [];
       if (rawTypes && rawTypes.value) {
@@ -711,13 +711,13 @@ async function ppLoadAssets(projId) {
         else if (typeof tv === 'string' && tv) { try { var p = JSON.parse(tv); typesArr = Array.isArray(p) ? p : [tv]; } catch(e) { typesArr = [tv]; } }
       }
       return {
-        id:         val(r, FIELD.ASSETS.id),
-        fileType:   val(r, FIELD.ASSETS.fileType),
+        id:         fv(r, FIELD.ASSETS.id),
+        fileType:   fv(r, FIELD.ASSETS.fileType),
         assetTypes: typesArr,
-        notes:      val(r, FIELD.ASSETS.notes),
-        fileLink:   val(r, FIELD.ASSETS.fileLink),
-        received:   val(r, FIELD.ASSETS.received),
-        hidden:     val(r, FIELD.ASSETS.hidden)
+        notes:      fv(r, FIELD.ASSETS.notes),
+        fileLink:   fv(r, FIELD.ASSETS.fileLink),
+        received:   fv(r, FIELD.ASSETS.received),
+        hidden:     fv(r, FIELD.ASSETS.hidden)
       };
     });
     ppRenderAssets();
@@ -855,15 +855,15 @@ async function ppLoadTar() {
         else if (typeof tv === 'string' && tv) { try { var p = JSON.parse(tv); typesArr = Array.isArray(p) ? p : [tv]; } catch(e) { typesArr = [tv]; } }
       }
       return {
-        id:          val(r, FIELD.ASSETS.id),
-        fileType:    val(r, FIELD.ASSETS.fileType),
+        id:          fv(r, FIELD.ASSETS.id),
+        fileType:    fv(r, FIELD.ASSETS.fileType),
         assetTypes:  typesArr,
-        notes:       val(r, FIELD.ASSETS.notes),
-        fileLink:    val(r, FIELD.ASSETS.fileLink),
-        received:    val(r, FIELD.ASSETS.received),
-        projectName: val(r, FIELD.ASSETS.projectName),
-        clientName:  val(r, FIELD.ASSETS.clientName),
-        progress:    val(r, FIELD.ASSETS.progress)
+        notes:       fv(r, FIELD.ASSETS.notes),
+        fileLink:    fv(r, FIELD.ASSETS.fileLink),
+        received:    fv(r, FIELD.ASSETS.received),
+        projectName: fv(r, FIELD.ASSETS.projectName),
+        clientName:  fv(r, FIELD.ASSETS.clientName),
+        progress:    fv(r, FIELD.ASSETS.progress)
       };
     });
     ppTarLoaded = true;
@@ -992,8 +992,8 @@ async function ppLoadRfp() {
     var rows = results[0];
     ppRfpPods = results[1];
     ppRfpData = rows.map(function(r) {
-      var folder = val(r, FIELD.PROJECTS.folder);
-      var rfpRaw = val(r, FIELD.PROJECTS.rfpDate) || '';
+      var folder = fv(r, FIELD.PROJECTS.folder);
+      var rfpRaw = fv(r, FIELD.PROJECTS.rfpDate) || '';
       // Format ISO date → MM/DD/YY
       var rfpDisplay = rfpRaw;
       if (rfpRaw) {
@@ -1001,14 +1001,14 @@ async function ppLoadRfp() {
         if (parts.length === 3) rfpDisplay = parts[1] + '/' + parts[2] + '/' + parts[0].slice(2);
       }
       return {
-        id:          val(r, FIELD.PROJECTS.id),
-        name:        val(r, FIELD.PROJECTS.name),
-        stage:       val(r, FIELD.PROJECTS.stage),
+        id:          fv(r, FIELD.PROJECTS.id),
+        name:        fv(r, FIELD.PROJECTS.name),
+        stage:       fv(r, FIELD.PROJECTS.stage),
         folder:      folder,
-        pod:         val(r, FIELD.PROJECTS.pod),
-        fid116:      val(r, FIELD.PROJECTS.fid116),
-        fid118:      val(r, FIELD.PROJECTS.fid118),
-        techAssets:  val(r, FIELD.PROJECTS.techAssets),
+        pod:         fv(r, FIELD.PROJECTS.pod),
+        fid116:      fv(r, FIELD.PROJECTS.fid116),
+        fid118:      fv(r, FIELD.PROJECTS.fid118),
+        techAssets:  fv(r, FIELD.PROJECTS.techAssets),
         rfpDate:     rfpRaw,
         rfpDisplay:  rfpDisplay,
         sendToProd:  (r[FIELD.PROJECTS.sendToProd] && r[FIELD.PROJECTS.sendToProd].value) || ''
@@ -1101,17 +1101,17 @@ async function ppLoadInProd() {
     ppInProdPreProdCount = results[1].length;
     ppInProdData = results[0].map(function(r) {
       return {
-        id:              val(r, FIELD.PROJECTS.id),
-        name:            val(r, FIELD.PROJECTS.name),
-        clientName:      val(r, FIELD.PROJECTS.fid54),
-        type:            val(r, FIELD.PROJECTS.type),
-        folder:          val(r, FIELD.PROJECTS.folder),
-        teamChannel:     val(r, FIELD.PROJECTS.teamChannel),
-        reviewStudio:    val(r, FIELD.PROJECTS.reviewStudio),
-        earliestBooking: val(r, FIELD.PROJECTS.earliestBooking),
-        latestBooking:   val(r, FIELD.PROJECTS.latestBooking),
-        pod:             val(r, FIELD.PROJECTS.pod),
-        age:             parseFloat(val(r, FIELD.PROJECTS.age)) || 0
+        id:              fv(r, FIELD.PROJECTS.id),
+        name:            fv(r, FIELD.PROJECTS.name),
+        clientName:      fv(r, FIELD.PROJECTS.fid54),
+        type:            fv(r, FIELD.PROJECTS.type),
+        folder:          fv(r, FIELD.PROJECTS.folder),
+        teamChannel:     fv(r, FIELD.PROJECTS.teamChannel),
+        reviewStudio:    fv(r, FIELD.PROJECTS.reviewStudio),
+        earliestBooking: fv(r, FIELD.PROJECTS.earliestBooking),
+        latestBooking:   fv(r, FIELD.PROJECTS.latestBooking),
+        pod:             fv(r, FIELD.PROJECTS.pod),
+        age:             parseFloat(fv(r, FIELD.PROJECTS.age)) || 0
       };
     });
     ppInProdLoaded = true;
