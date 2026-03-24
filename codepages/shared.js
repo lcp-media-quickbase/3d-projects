@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.25.0';
+var LCP_VERSION = 'v3.25.1';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -204,12 +204,40 @@ async function _getTempToken(tableId) {
   const data = await resp.json();
   const token = data.temporaryAuthorization;
 
+  // Log full response on first call to discover role field
+  if (!_roleFromToken) {
+    console.log('[Auth] Temp token full response:', JSON.stringify(data));
+    _roleFromToken = true;
+    // Try common field names for role
+    var detectedRole = data.role || data.roleId || data.userRoleId || data.accessRoleId;
+    if (detectedRole) {
+      var numRole = parseInt(detectedRole);
+      if (numRole && numRole !== _currentUser.role) {
+        console.log('[Role] Corrected from temp token:', _currentUser.role, '→', numRole);
+        _currentUser.role = numRole;
+        _currentUser.isAdmin = (numRole === ROLE.ADMIN || numRole === ROLE.ADMIN_COPY);
+        _currentUser.isLeadership = (numRole === ROLE.LEADERSHIP);
+        _currentUser.isSenior = (numRole === ROLE.SENIORS);
+        _currentUser.isArtist = (numRole === ROLE.ARTISTS || numRole === ROLE.VIEWER);
+        setTimeout(function() {
+          var nav = document.querySelector('.sidebar');
+          if (nav) nav.outerHTML = renderDashboardNav();
+          var vis = getVisibleTabs();
+          console.log('[Role] Visible tabs after correction:', vis.map(function(t){return t.id;}).join(', '));
+          if (_activeTab && !vis.find(function(t){return t.id===_activeTab;})) {
+            if (vis.length) switchTab(vis[0].id);
+          }
+        }, 50);
+      }
+    }
+  }
+
   _tempTokens[tableId] = {
     token,
     expiresAt: Date.now() + TEMP_TOKEN_LIFETIME
   };
 
-  console.log(`[Auth] Temp token acquired for table ${tableId}`);
+  console.log('[Auth] Temp token acquired for table', tableId);
   return token;
 }
 
