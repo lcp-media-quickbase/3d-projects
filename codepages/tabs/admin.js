@@ -7,6 +7,64 @@ var aPeople = [], aProjects = [], aPods = [];
 var adminSubTab = 'people';
 var adminSearch = '';
 
+// QB group IDs by role
+var QB_ROLE_GROUPS = {
+  'Leadership': '117379',
+  'Senior':     '117379',
+  'Artist':     '125909'
+};
+var ROLE_OPTIONS = ['Leadership', 'Senior', 'Artist'];
+
+function escXml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function qbProvisionUser(email, fname, lname) {
+  var ticket = (typeof gReqTkt !== 'undefined' && gReqTkt) ? gReqTkt : '';
+  var body = '<qdbapi><ticket>'+escXml(ticket)+'</ticket>'+
+    '<email>'+escXml(email)+'</email>'+
+    '<fname>'+escXml(fname)+'</fname>'+
+    '<lname>'+escXml(lname)+'</lname></qdbapi>';
+  var resp = await fetch('https://'+QB_REALM+'/db/main?a=API_ProvisionUser', {
+    method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/xml; charset=UTF-8'},
+    body: body
+  });
+  var text = await resp.text();
+  var errMatch = text.match(/<errcode>(\d+)<\/errcode>/);
+  if (errMatch && errMatch[1] !== '0') {
+    // User may already exist in realm — look up existing ID
+    return await qbGetUserIdByEmail(email).catch(function(){return null;});
+  }
+  var idMatch = text.match(/<userid>([^<]+)<\/userid>/);
+  return idMatch ? idMatch[1] : null;
+}
+
+async function qbGetUserIdByEmail(email) {
+  var ticket = (typeof gReqTkt !== 'undefined' && gReqTkt) ? gReqTkt : '';
+  var resp = await fetch('https://'+QB_REALM+'/db/main?a=API_GetUserInfo&email='+encodeURIComponent(email)+'&ticket='+encodeURIComponent(ticket), {
+    credentials: 'include'
+  });
+  var text = await resp.text();
+  var match = text.match(/<userid>([^<]+)<\/userid>/);
+  return match ? match[1] : null;
+}
+
+async function qbAddToGroup(gid, userId) {
+  await fetch('https://api.quickbase.com/v1/usergroups/'+gid+'/members', {
+    method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json','QB-Realm-Hostname':QB_REALM},
+    body: JSON.stringify({userId: userId})
+  });
+}
+
+async function qbRemoveFromGroup(gid, userId) {
+  await fetch('https://api.quickbase.com/v1/usergroups/'+gid+'/members/'+encodeURIComponent(userId), {
+    method:'DELETE', credentials:'include',
+    headers:{'QB-Realm-Hostname':QB_REALM}
+  });
+}
+
 var adminCSS = `
   .admin-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; flex-shrink:0; }
   .admin-tab { padding:10px 16px; font-size:13px; font-weight:500; color:var(--text-muted); cursor:pointer; border:none; background:none; font-family:inherit; border-bottom:2px solid transparent; transition:all 0.15s; }
@@ -200,24 +258,44 @@ function editPerson(id) {
     '<h3 style="font-size:16px;font-weight:600;margin-bottom:16px">Edit Person</h3>'+
     '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="eName" value="'+escapeHtml(p.name)+'"></div>'+
     '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="eEmail" value="'+escapeHtml(p.email||'')+'"></div>'+
-    '<div class="form-group"><label class="form-label">Role</label><input class="form-input" id="eRole" value="'+escapeHtml(p.role||'')+'"></div>'+
+    '<div class="form-group"><label class="form-label">Role</label>'+
+    '<select class="form-select" id="eRole">'+
+      ROLE_OPTIONS.map(function(r){return '<option'+(r===p.role?' selected':'')+'>'+r+'</option>';}).join('')+'</select></div>'+
     '<div class="form-group"><label class="form-label">POD</label><select class="form-select" id="ePod">'+
       podOpts.map(function(po){return '<option'+(po===p.pod?' selected':'')+'>'+escapeHtml(po)+'</option>';}).join('')+'</select></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'+
       '<button class="btn" onclick="adminCloseModal()">Cancel</button>'+
-      '<button class="btn btn-primary" onclick="adminSavePerson('+id+')">Save</button></div>';
+      '<button class="btn btn-primary" onclick="adminSavePerson('+id+',\''+escapeHtml(p.role||'')+'\')">Save</button></div>';
   document.getElementById('adminModal').classList.add('visible');
 }
 
-async function savePerson(id) {
+async function savePerson(id, oldRole) {
+  var newRole = document.getElementById('eRole').value;
   try {
     await qbUpsert(TABLES.people,[{
       [FIELD.PEOPLE.id]:{value:id},
       [FIELD.PEOPLE.name]:{value:document.getElementById('eName').value},
       [FIELD.PEOPLE.email]:{value:document.getElementById('eEmail').value},
-      [FIELD.PEOPLE.role]:{value:document.getElementById('eRole').value}
+      [FIELD.PEOPLE.role]:{value:newRole}
     }]);
-    document.getElementById('adminModal').classList.remove('visible');
+
+    // Update QB group if role changed
+    if (oldRole !== newRole) {
+      var oldGid = QB_ROLE_GROUPS[oldRole];
+      var newGid = QB_ROLE_GROUPS[newRole];
+      if (oldGid !== newGid) {
+        // Use cached email to find QB user ID
+        var person = aPeople.find(function(x){return x.id===id;});
+        var email = (person && person.email) || document.getElementById('eEmail').value.trim();
+        var userId = await qbGetUserIdByEmail(email).catch(function(){return null;});
+        if (userId) {
+          if (oldGid) await qbRemoveFromGroup(oldGid, userId).catch(function(){});
+          if (newGid) await qbAddToGroup(newGid, userId).catch(function(){});
+        }
+      }
+    }
+
+    adminCloseModal();
     showToast('Person updated','success');
     invalidateCache('people');
     aPeople = await getCachedPeople(true);
@@ -278,7 +356,9 @@ function addPerson() {
     '<h3 style="font-size:16px;font-weight:600;margin-bottom:16px">Add Person</h3>'+
     '<div class="form-group"><label class="form-label">Name</label><input class="form-input" id="eName" placeholder="Full name"></div>'+
     '<div class="form-group"><label class="form-label">Email</label><input class="form-input" id="eEmail" placeholder="email@lcpmedia.com"></div>'+
-    '<div class="form-group"><label class="form-label">Role</label><input class="form-input" id="eRole" placeholder="e.g. 3D Artist"></div>'+
+    '<div class="form-group"><label class="form-label">Role</label>'+
+    '<select class="form-select" id="eRole"><option value="">Select role...</option>'+
+      ROLE_OPTIONS.map(function(r){return '<option>'+r+'</option>';}).join('')+'</select></div>'+
     '<div class="form-group"><label class="form-label">POD</label><select class="form-select" id="ePod"><option value="">Select POD...</option>'+
       podOpts.map(function(po){return '<option>'+escapeHtml(po)+'</option>';}).join('')+'</select></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'+
@@ -288,17 +368,29 @@ function addPerson() {
 }
 
 async function createPerson() {
-  var name=document.getElementById('eName').value;
+  var name = document.getElementById('eName').value.trim();
+  var email = document.getElementById('eEmail').value.trim();
+  var role = document.getElementById('eRole').value;
   if (!name) { showToast('Name is required','warning'); return; }
+  if (!email) { showToast('Email is required','warning'); return; }
   try {
     await qbUpsert(TABLES.people,[{
       [FIELD.PEOPLE.name]:{value:name},
-      [FIELD.PEOPLE.email]:{value:document.getElementById('eEmail').value},
-      [FIELD.PEOPLE.role]:{value:document.getElementById('eRole').value},
+      [FIELD.PEOPLE.email]:{value:email},
+      [FIELD.PEOPLE.role]:{value:role},
       [FIELD.PEOPLE.active]:{value:true}
     }]);
-    document.getElementById('adminModal').classList.remove('visible');
-    showToast('Person created','success');
+
+    // Provision QB account (sends invite email) then add to group
+    var parts = name.split(/\s+/);
+    var userId = await qbProvisionUser(email, parts[0], parts.slice(1).join(' ')||'.').catch(function(){return null;});
+    var gid = QB_ROLE_GROUPS[role];
+    if (gid && userId) {
+      await qbAddToGroup(gid, userId).catch(function(){});
+    }
+
+    adminCloseModal();
+    showToast('Person created — invite sent to '+email+(userId?'':' (QB provision failed, check manually)'),'success');
     invalidateCache('people');
     aPeople = await getCachedPeople(true);
     renderSub();
