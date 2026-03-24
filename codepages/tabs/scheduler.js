@@ -33,8 +33,8 @@ var schedulerCSS = `
   .sched-topbar-center { display:flex; align-items:center; gap:8px; }
   .sched-topbar-right { display:flex; align-items:center; gap:10px; }
 
-  .scheduler-layout { display:flex; flex:1; overflow:hidden; }
-  .resource-panel { width:220px; min-width:180px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); flex-shrink:0; }
+  .scheduler-layout { display:flex; flex:1; overflow:hidden; min-height:0; }
+  .resource-panel { width:220px; min-width:180px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); flex-shrink:0; min-height:0; }
   .resource-header { height:52px; padding:8px 14px; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.8px; box-sizing:border-box; flex-shrink:0; }
   .search-input { width:100%; margin-top:6px; padding:5px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:5px; color:var(--text); font-size:12px; font-family:inherit; outline:none; box-sizing:border-box; text-transform:none; letter-spacing:normal; font-weight:400; }
   .search-input:focus { border-color:var(--accent); }
@@ -51,7 +51,7 @@ var schedulerCSS = `
   .person-row { height:var(--row-h); display:flex; align-items:center; padding:0 14px 0 28px; gap:8px; font-size:12px; color:var(--text-muted); border-bottom:1px solid var(--row-line); }
   .person-avatar { width:22px; height:22px; border-radius:50%; background:var(--accent-dim); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:var(--accent); flex-shrink:0; }
 
-  .timeline-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .timeline-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
   .timeline-header { height:52px; display:flex; flex-direction:column; justify-content:flex-end; border-bottom:1px solid var(--border); background:var(--surface); overflow:hidden; flex-shrink:0; }
   .timeline-months { display:flex; height:22px; align-items:center; border-bottom:1px solid rgba(42,45,58,0.5); }
   .month-label { font-size:11px; font-weight:600; color:var(--text-dim); padding-left:8px; white-space:nowrap; overflow:hidden; }
@@ -63,7 +63,7 @@ var schedulerCSS = `
   .day-dots { display:flex; gap:1px; margin-top:1px; }
   .day-dot { width:3px; height:3px; border-radius:50%; }
 
-  .timeline-body { flex:1; overflow:auto; position:relative; }
+  .timeline-body { flex:1; overflow:auto; position:relative; min-height:0; }
   .timeline-grid { position:relative; min-height:100%; }
   .grid-col { position:absolute; top:0; bottom:0; border-right:1px solid var(--border); box-sizing:border-box; }
   .grid-col.weekend { background:rgba(255,255,255,0.015); }

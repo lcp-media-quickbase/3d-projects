@@ -20,7 +20,7 @@ var vacCSS = [
   '.vac-kpi { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }',
   '.vac-kpi-label { font-size:10px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; }',
   '.vac-kpi-value { font-size:20px; font-weight:700; margin-top:2px; }',
-  '.vac-grid { flex:1; overflow:auto; }',
+  '.vac-grid { flex:1; overflow:auto; min-height:0; }',
   '.vac-table { width:100%; border-collapse:collapse; font-size:12px; }',
   '.vac-table th { padding:6px 4px; font-size:9px; font-weight:600; color:var(--text-dim); text-transform:uppercase; border-bottom:1px solid var(--border); background:var(--surface); position:sticky; top:0; z-index:5; text-align:center; min-width:26px; }',
   '.vac-table th.vac-name-th { text-align:left; min-width:160px; padding-left:10px; }',

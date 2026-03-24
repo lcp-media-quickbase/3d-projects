@@ -18,7 +18,7 @@ var tsCSS = [
   '.ts-kpi { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }',
   '.ts-kpi-label { font-size:10px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; }',
   '.ts-kpi-value { font-size:20px; font-weight:700; margin-top:2px; }',
-  '.ts-grid { flex:1; overflow:auto; }',
+  '.ts-grid { flex:1; overflow:auto; min-height:0; }',
   '.ts-table { width:100%; border-collapse:collapse; font-size:12px; }',
   '.ts-table th { padding:8px 10px; font-size:10px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.4px; border-bottom:1px solid var(--border); background:var(--surface); position:sticky; top:0; z-index:5; }',
   '.ts-table td { padding:6px 10px; border-bottom:1px solid var(--border); text-align:center; }',
