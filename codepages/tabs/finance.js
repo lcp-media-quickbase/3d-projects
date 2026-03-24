@@ -9,8 +9,19 @@ var fProjects = [];
 var fScopeByDeal = {};
 var fView = 'budgets';
 var fSearch = '';
-var fLoadedAt = 0;
-var fLoadedRange = '';
+
+// Per-view cache — each view only loads what it needs
+var fArtistsLoadedAt = 0;
+var fArtistsLoadedRange = '';
+var fBudgetsLoadedAt = 0;
+var fBudgetsLoadedRange = '';
+// Scope is expensive — cache independently for 15 min
+// When a QB summary field exists on Projects (totalDealValue), set this permanently
+var fScopeLoadedAt = 0;
+// Set FIELD.PROJECTS.totalDealValue here once the summary field is created in QB.
+// That field returns sum(scope.totalValue) per project directly on the project row.
+// When set, loadBudgetsData will use it instead of querying the scope table at all.
+var SUMMARY_FIELD_ID = null; // e.g. 150 once created
 
 var EXCLUDED_PODS = ['Polish office', 'TourBuilder'];
 
@@ -59,24 +70,14 @@ function buildHTML() {
   '<div class="fin-grid"><table class="fin-table"><thead id="finThead"></thead><tbody id="finTbody"></tbody></table></div>';
 }
 
-async function loadFinData() {
-  fPeople = await getCachedPeople();
-  fProjects = await getCachedProjects(false); // include complete projects
+function getBookingWhere(dateRange) {
+  return (dateRange.start && dateRange.end)
+    ? '{' + FIELD.ASSIGN.end + '.OAF.' + dateRange.start + '}AND{' + FIELD.ASSIGN.start + '.BF.' + dateRange.end + '}'
+    : null;
+}
 
-  // Get date filter range
-  var dateRange = getDateFilterRange('fin');
-  var bookingWhere = null;
-  if (dateRange.start && dateRange.end) {
-    bookingWhere = '{' + FIELD.ASSIGN.end + '.OAF.' + dateRange.start + '}AND{' + FIELD.ASSIGN.start + '.BF.' + dateRange.end + '}';
-  }
-
-  // Load bookings within date range
-  var records = await qbQuery(TABLES.assignments,
-    [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName, FIELD.ASSIGN.personPod,
-     FIELD.ASSIGN.projectName, FIELD.ASSIGN.hours],
-    bookingWhere, [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 10000);
-
-  fBookings = (records.records || []).map(function(r) {
+function mapBookings(records) {
+  return (records.records || []).map(function(r) {
     return {
       personKey: String(fv(r, FIELD.ASSIGN.person)),
       personName: fv(r, FIELD.ASSIGN.personName),
@@ -84,23 +85,82 @@ async function loadFinData() {
       hours: parseFloat(fv(r, FIELD.ASSIGN.hours)) || 8
     };
   });
+}
 
-  // Load scope data for deal values (via temp tokens — same-app access)
-  fScopeByDeal = {};
-  try {
-    var scopeRows = await qbQueryAll(TABLES.scope,
-      [FIELD.SCOPE.id, FIELD.SCOPE.totalValue, FIELD.SCOPE.quantity,
-       FIELD.SCOPE.stillsCount, FIELD.SCOPE.panosCount, FIELD.SCOPE.projectRef],
-      null); // all scope records
+// ─── ARTIST COSTS LOADER (people + bookings only) ────────────
+async function loadArtistsData() {
+  var dateRange = getDateFilterRange('fin');
+  var results = await Promise.all([
+    getCachedPeople(),
+    qbQuery(TABLES.assignments,
+      [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName,
+       FIELD.ASSIGN.personPod, FIELD.ASSIGN.projectName, FIELD.ASSIGN.hours],
+      getBookingWhere(dateRange),
+      [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 10000)
+  ]);
+  fPeople = results[0];
+  fBookings = mapBookings(results[1]);
+  fArtistsLoadedRange = dateRange.start + ':' + dateRange.end;
+  fArtistsLoadedAt = Date.now();
+}
+
+// ─── PROJECT BUDGETS LOADER (people + projects + bookings + scope) ─
+async function loadBudgetsData() {
+  var dateRange = getDateFilterRange('fin');
+
+  // If summary field exists on Projects, scope query is not needed at all
+  var scopePromise;
+  if (SUMMARY_FIELD_ID) {
+    scopePromise = Promise.resolve(null); // dealt with via project field
+  } else if (Date.now() - fScopeLoadedAt < 900000) {
+    scopePromise = Promise.resolve(null); // use cached fScopeByDeal (15 min TTL)
+  } else {
+    scopePromise = qbQueryAll(TABLES.scope,
+      [FIELD.SCOPE.id, FIELD.SCOPE.totalValue, FIELD.SCOPE.projectRef],
+      null);
+  }
+
+  // All queries fire simultaneously
+  var results = await Promise.all([
+    getCachedPeople(),
+    getCachedProjects(false),
+    qbQuery(TABLES.assignments,
+      [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName,
+       FIELD.ASSIGN.personPod, FIELD.ASSIGN.projectName, FIELD.ASSIGN.hours],
+      getBookingWhere(dateRange),
+      [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 10000),
+    scopePromise
+  ]);
+
+  fPeople = results[0];
+  fProjects = results[1];
+  fBookings = mapBookings(results[2]);
+
+  var scopeRows = results[3];
+  if (scopeRows !== null) {
+    // Aggregate scope totals by deal/project reference
+    fScopeByDeal = {};
     scopeRows.forEach(function(r) {
       var dealId = String(fv(r, FIELD.SCOPE.projectRef));
       if (!fScopeByDeal[dealId]) fScopeByDeal[dealId] = {totalValue: 0, assets: 0};
       fScopeByDeal[dealId].totalValue += parseFloat(fv(r, FIELD.SCOPE.totalValue)) || 0;
       fScopeByDeal[dealId].assets += 1;
     });
-  } catch(e) { console.warn('[Finance] Could not load scope:', e); }
-  fLoadedRange = dateRange.start + ':' + dateRange.end;
-  fLoadedAt = Date.now();
+    fScopeLoadedAt = Date.now();
+  }
+
+  // If summary field is set, override fScopeByDeal from project rows
+  if (SUMMARY_FIELD_ID) {
+    fScopeByDeal = {};
+    fProjects.forEach(function(p) {
+      if (p.deal && p.totalDealValue) {
+        fScopeByDeal[String(p.deal)] = {totalValue: p.totalDealValue, assets: p.visualAssets || 0};
+      }
+    });
+  }
+
+  fBudgetsLoadedRange = dateRange.start + ':' + dateRange.end;
+  fBudgetsLoadedAt = Date.now();
 }
 
 // ─── ARTIST COSTS VIEW ─────────────────────────────────────
@@ -172,7 +232,6 @@ function renderBudgets() {
   var rateMap = {};
   fPeople.forEach(function(p) { rateMap[String(p.tdId)] = p.hourlyRate || 0; });
 
-  // Aggregate bookings by project name
   var byProject = {};
   fBookings.forEach(function(b) {
     var proj = b.project || '(No Project)';
@@ -182,21 +241,15 @@ function renderBudgets() {
     byProject[proj].artists.add(b.personKey);
   });
 
-  // Build project rows — match to fProjects for deal/scope data
   var projRows = [];
   for (var projName in byProject) {
     var bp = byProject[projName];
     var matched = fProjects.find(function(p) { return p.name === projName; });
 
-    var dealCost = 0;
-    var assets = 0;
+    var dealCost = 0, assets = 0;
     if (matched && matched.deal) {
       var scope = fScopeByDeal[String(matched.deal)];
-      if (scope) {
-        dealCost = scope.totalValue;
-        assets = scope.assets;
-      }
-      // Also use visual assets from project if scope didn't have count
+      if (scope) { dealCost = scope.totalValue; assets = scope.assets; }
       if (!assets && matched.visualAssets) assets = matched.visualAssets;
     }
 
@@ -206,7 +259,6 @@ function renderBudgets() {
     var profit = budget30 > 0 ? (budget30 - bp.cost) : null;
     var assetCost = assets > 0 ? (bp.cost / assets) : null;
 
-    // Color dot based on margin
     var dotColor = '#7f8c8d';
     if (profitMargin !== null) {
       if (profitMargin > -20) dotColor = '#27ae60';
@@ -229,7 +281,6 @@ function renderBudgets() {
   }
 
   projRows.sort(function(a, b) {
-    // Sort: projects with deals first (by profit margin asc = worst first), then no-deal by cost desc
     if (a.dealCost && !b.dealCost) return -1;
     if (!a.dealCost && b.dealCost) return 1;
     if (a.dealCost && b.dealCost) return (a.profitMargin || 0) - (b.profitMargin || 0);
@@ -237,7 +288,6 @@ function renderBudgets() {
   });
 
   var totalDeal = 0, totalBudget = 0, totalH = 0, totalC = 0, totalProfit = 0;
-
   var html = projRows.map(function(p) {
     totalDeal += p.dealCost; totalBudget += p.budget30;
     totalH += p.hours; totalC += p.cost;
@@ -280,14 +330,41 @@ function renderBudgets() {
   }
 }
 
-function setView(v) {
+// ─── VIEW SWITCHER ──────────────────────────────────────────
+async function activateView(v) {
   fView = v;
   document.getElementById('finTabBudgets').className = v === 'budgets' ? 'fin-tab active' : 'fin-tab';
   document.getElementById('finTabArtists').className = v === 'artists' ? 'fin-tab active' : 'fin-tab';
-  if (v === 'budgets') renderBudgets(); else renderArtists();
+
+  var dr = getDateFilterRange('fin');
+  var rangeKey = dr.start + ':' + dr.end;
+
+  if (v === 'budgets') {
+    if (rangeKey === fBudgetsLoadedRange && Date.now() - fBudgetsLoadedAt < 300000) {
+      renderBudgets();
+    } else {
+      document.getElementById('finTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading project budgets...</td></tr>';
+      await loadBudgetsData();
+      renderBudgets();
+    }
+  } else {
+    if (rangeKey === fArtistsLoadedRange && Date.now() - fArtistsLoadedAt < 300000) {
+      renderArtists();
+    } else {
+      document.getElementById('finTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading artist costs...</td></tr>';
+      await loadArtistsData();
+      renderArtists();
+    }
+  }
 }
 
-window.finSetView = setView;
+function invalidateAndReload() {
+  fArtistsLoadedAt = 0;
+  fBudgetsLoadedAt = 0;
+  activateView(fView);
+}
+
+window.finSetView = activateView;
 
 registerTab('finance', {
   icon: '💵', label: 'Finance',
@@ -299,31 +376,19 @@ registerTab('finance', {
     document.getElementById('tab-finance').innerHTML = buildHTML();
   },
   onActivate: async function() {
-    function rerender() { if (fView === 'budgets') renderBudgets(); else renderArtists(); }
-    window.onAppSearch = function(val) { fSearch = val.trim(); rerender(); };
+    window.onAppSearch = function(val) {
+      fSearch = val.trim();
+      if (fView === 'budgets') renderBudgets(); else renderArtists();
+    };
     var dfEl = document.getElementById('finDateFilter');
     if (dfEl && !dfEl.innerHTML) {
-      dfEl.innerHTML = buildDateFilter('fin', function() {
-        fLoadedAt = 0; // invalidate cache on preset click
-        loadFinData().then(rerender);
-      });
+      dfEl.innerHTML = buildDateFilter('fin', invalidateAndReload);
       ['finDateFrom','finDateTo'].forEach(function(id) {
         var el = document.getElementById(id);
-        if (el) el.addEventListener('change', function() {
-          fLoadedAt = 0; // invalidate cache on manual date change
-          loadFinData().then(rerender);
-        });
+        if (el) el.addEventListener('change', invalidateAndReload);
       });
     }
-    var dr = getDateFilterRange('fin');
-    var rangeKey = dr.start + ':' + dr.end;
-    if (rangeKey === fLoadedRange && Date.now() - fLoadedAt < 300000) {
-      rerender();
-    } else {
-      document.getElementById('finTbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-dim);padding:40px">Loading financial data...</td></tr>';
-      await loadFinData();
-      rerender();
-    }
+    await activateView(fView);
   }
 });
 
