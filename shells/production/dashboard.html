@@ -14,6 +14,17 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0f1117}
 <body>
 <div class="loader" id="loader"><div class="spinner"></div>Loading...</div>
 <script>
+// Capture QB globals immediately (before any async loading)
+var _qbRole = (typeof gReqRole !== 'undefined') ? gReqRole : null;
+var _qbTkt = (typeof gReqTkt !== 'undefined') ? gReqTkt : null;
+var _qbEmail = (typeof gReqEmail !== 'undefined') ? gReqEmail : null;
+console.log('[Shell] QB globals captured — gReqRole:', _qbRole, 'gReqTkt:', _qbTkt ? 'present' : 'missing', 'gReqEmail:', _qbEmail);
+
+// Make sure gReqRole is set as a global for shared.js to read
+if (_qbRole !== null) window.gReqRole = _qbRole;
+if (_qbTkt !== null) window.gReqTkt = _qbTkt;
+if (_qbEmail !== null) window.gReqEmail = _qbEmail;
+
 var REPO = 'lcp-media-quickbase/3d-projects';
 
 function fetchRetry(url, n, d) {
@@ -88,3 +99,4 @@ fetchRetry('https://raw.githubusercontent.com/' + REPO + '/main/codepages/versio
 </script>
 </body>
 </html>
+
