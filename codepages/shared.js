@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.29.1';
+var LCP_VERSION = 'v3.30.0';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -220,13 +220,13 @@ async function _getTempToken(tableId) {
         _currentUser.isSenior = (numRole === ROLE.SENIORS);
         _currentUser.isArtist = (numRole === ROLE.ARTISTS || numRole === ROLE.VIEWER);
         setTimeout(function() {
-          var nav = document.querySelector('.sidebar');
-          if (nav) nav.outerHTML = renderDashboardNav();
           var vis = getVisibleTabs();
-          console.log('[Role] Visible tabs after correction:', vis.map(function(t){return t.id;}).join(', '));
-          if (_activeTab && !vis.find(function(t){return t.id===_activeTab;})) {
-            if (vis.length) switchTab(vis[0].id);
-          }
+          var vIds = vis.map(function(t){return t.id;});
+          console.log('[Role] Visible tabs after correction:', vIds.join(', '));
+          document.querySelectorAll('.nav-item[data-tab]').forEach(function(el) {
+            el.style.display = vIds.indexOf(el.dataset.tab) !== -1 ? '' : 'none';
+          });
+          if (_activeTab && vIds.indexOf(_activeTab) === -1 && vis.length) switchTab(vis[0].id);
         }, 50);
       }
     }
@@ -612,15 +612,16 @@ async function resolveCurrentUser() {
     } catch(e) { console.warn('[Role] Could not look up role from People:', e.message); }
   }
 
-  // Re-render nav with correct role
+  // Update nav visibility without replacing DOM (avoids layout breakage)
   var visibleNow = getVisibleTabs();
-  console.log('[Role] Visible tabs:', visibleNow.map(function(t){return t.id;}).join(', '));
-  var nav = document.querySelector('.sidebar');
-  if (nav) nav.outerHTML = renderDashboardNav();
+  var visibleIds = visibleNow.map(function(t){return t.id;});
+  console.log('[Role] Visible tabs:', visibleIds.join(', '));
+  document.querySelectorAll('.nav-item[data-tab]').forEach(function(el) {
+    el.style.display = visibleIds.indexOf(el.dataset.tab) !== -1 ? '' : 'none';
+  });
   // If current tab is no longer visible, switch to first visible
-  if (_activeTab) {
-    var stillVisible = visibleNow.find(function(t){return t.id === _activeTab;});
-    if (!stillVisible && visibleNow.length) switchTab(visibleNow[0].id);
+  if (_activeTab && visibleIds.indexOf(_activeTab) === -1 && visibleNow.length) {
+    switchTab(visibleNow[0].id);
   }
 }
 
