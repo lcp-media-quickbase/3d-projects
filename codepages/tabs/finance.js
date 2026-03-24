@@ -10,6 +10,7 @@ var fScopeByDeal = {};
 var fView = 'budgets';
 var fSearch = '';
 var fCollapsedPods = new Set();
+var fCollapsedBudgetPods = new Set();
 
 // Per-view cache — each view only loads what it needs
 var fArtistsLoadedAt = 0;
@@ -282,6 +283,16 @@ window.finTogglePod = function(pod) {
   if (chev) chev.className = 'fin-pod-chevron' + (collapsed ? '' : ' open');
 };
 
+window.finToggleBudgetPod = function(pod) {
+  if (fCollapsedBudgetPods.has(pod)) fCollapsedBudgetPods.delete(pod); else fCollapsedBudgetPods.add(pod);
+  var collapsed = fCollapsedBudgetPods.has(pod);
+  document.querySelectorAll('[data-fin-bpod="' + pod + '"]').forEach(function(row) {
+    row.style.display = collapsed ? 'none' : '';
+  });
+  var chev = document.getElementById('fin-bchev-' + pod);
+  if (chev) chev.className = 'fin-pod-chevron' + (collapsed ? '' : ' open');
+};
+
 window.finEditRate = function(personId, currentRate) {
   var cell = document.getElementById('fin-rate-' + personId);
   if (!cell) return;
@@ -366,7 +377,10 @@ function renderBudgets() {
     }
 
     projRows.push({
-      name: projName, dealCost: dealCost, budget30: budget30,
+      name: projName,
+      pod: (matched && matched.pod) || 'Unknown',
+      number: (matched && matched.number) || 0,
+      dealCost: dealCost, budget30: budget30,
       hours: bp.hours, cost: bp.cost, totalMargin: totalMargin,
       profitMargin: profitMargin, profit: profit,
       assets: assets, assetCost: assetCost, dotColor: dotColor
@@ -378,38 +392,74 @@ function renderBudgets() {
     projRows = projRows.filter(function(p) { return p.name.toLowerCase().indexOf(s) !== -1; });
   }
 
-  projRows.sort(function(a, b) {
-    if (a.dealCost && !b.dealCost) return -1;
-    if (!a.dealCost && b.dealCost) return 1;
-    if (a.dealCost && b.dealCost) return (a.profitMargin || 0) - (b.profitMargin || 0);
-    return b.cost - a.cost;
+  // Group by pod
+  var podGroups = {};
+  var podOrder = [];
+  projRows.forEach(function(p) {
+    if (!podGroups[p.pod]) { podGroups[p.pod] = []; podOrder.push(p.pod); }
+    podGroups[p.pod].push(p);
   });
 
-  var totalDeal = 0, totalBudget = 0, totalH = 0, totalC = 0, totalProfit = 0;
-  var html = projRows.map(function(p) {
-    totalDeal += p.dealCost; totalBudget += p.budget30;
-    totalH += p.hours; totalC += p.cost;
-    if (p.profit !== null) totalProfit += p.profit;
+  // Sort pods: pods with booking hours first (desc total hours), then alphabetical
+  podOrder.sort(function(a, b) {
+    var aH = podGroups[a].reduce(function(s, r) { return s + r.hours; }, 0);
+    var bH = podGroups[b].reduce(function(s, r) { return s + r.hours; }, 0);
+    if (aH && !bH) return -1;
+    if (!aH && bH) return 1;
+    if (aH !== bH) return bH - aH;
+    return a.localeCompare(b);
+  });
 
-    var pmCls = p.profitMargin !== null ? (p.profitMargin <= 0 ? 'fin-pos' : 'fin-neg') : 'fin-dim';
-    var profitCls = p.profit !== null ? (p.profit >= 0 ? 'fin-pos' : 'fin-neg') : 'fin-dim';
-    var d = '<span class="fin-dim">—</span>';
+  // Sort projects within each pod by number high to low
+  podOrder.forEach(function(pod) {
+    podGroups[pod].sort(function(a, b) { return (b.number || 0) - (a.number || 0); });
+  });
 
-    return '<tr>' +
-      '<td class="fin-name"><span class="fin-dot" style="background:' + p.dotColor + '"></span>' + escapeHtml(p.name) + '</td>' +
-      '<td class="fin-num">' + (p.dealCost ? fmt$(p.dealCost) : d) + '</td>' +
-      '<td class="fin-num">' + (p.budget30 ? fmt$(p.budget30) : d) + '</td>' +
-      '<td class="fin-num">' + fmtH(p.hours) + '</td>' +
-      '<td class="fin-num fin-bold">' + fmt$(p.cost) + '</td>' +
-      '<td class="fin-num">' + (p.totalMargin !== null ? fmtPct(p.totalMargin) : d) + '</td>' +
-      '<td class="fin-num ' + pmCls + '">' + (p.profitMargin !== null ? fmtPct(p.profitMargin) : '—') + '</td>' +
-      '<td class="fin-num ' + profitCls + '">' + (p.profit !== null ? fmt$(p.profit) : '—') + '</td>' +
-      '<td class="fin-num">' + (p.assets || d) + '</td>' +
-      '<td class="fin-num">' + (p.assetCost !== null ? fmt$(p.assetCost) : d) + '</td>' +
-    '</tr>';
-  }).join('');
+  var totalDeal = 0, totalBudget = 0, totalH = 0, totalC = 0, totalProfit = 0, totalCount = 0;
+  var html = '';
+  var d = '<span class="fin-dim">—</span>';
 
-  html += '<tr class="fin-total"><td>Total (' + projRows.length + ')</td>' +
+  podOrder.forEach(function(pod) {
+    var members = podGroups[pod];
+    var podH = members.reduce(function(s, r) { return s + r.hours; }, 0);
+    var podC = members.reduce(function(s, r) { return s + r.cost; }, 0);
+    var podDeal = members.reduce(function(s, r) { return s + r.dealCost; }, 0);
+    var collapsed = fCollapsedBudgetPods.has(pod);
+    var dotColor = (typeof POD_COLORS !== 'undefined' && POD_COLORS[pod]) || '#868e96';
+    var chevronCls = 'fin-pod-chevron' + (collapsed ? '' : ' open');
+    totalH += podH; totalC += podC; totalCount += members.length;
+
+    html += '<tr class="fin-pod-row" onclick="finToggleBudgetPod(\'' + escapeHtml(pod) + '\')">' +
+      '<td colspan="10">' +
+        '<span class="' + chevronCls + '" id="fin-bchev-' + escapeHtml(pod) + '">&#9654;</span>' +
+        '<span class="fin-dot" style="background:' + dotColor + '"></span>' +
+        escapeHtml(pod) +
+        ' <span class="fin-dim" style="font-weight:400;font-size:10px">(' + members.length + ' projects &middot; ' + fmtH(podH) + ' &middot; ' + fmt$(podC) + (podDeal ? ' &middot; deal ' + fmt$(podDeal) : '') + ')</span>' +
+      '</td></tr>';
+
+    members.forEach(function(p) {
+      totalDeal += p.dealCost; totalBudget += p.budget30;
+      if (p.profit !== null) totalProfit += p.profit;
+
+      var pmCls = p.profitMargin !== null ? (p.profitMargin <= 0 ? 'fin-pos' : 'fin-neg') : 'fin-dim';
+      var profitCls = p.profit !== null ? (p.profit >= 0 ? 'fin-pos' : 'fin-neg') : 'fin-dim';
+
+      html += '<tr data-fin-bpod="' + escapeHtml(pod) + '"' + (collapsed ? ' style="display:none"' : '') + '>' +
+        '<td class="fin-name"><span class="fin-dot" style="background:' + p.dotColor + '"></span>' + escapeHtml(p.name) + '</td>' +
+        '<td class="fin-num">' + (p.dealCost ? fmt$(p.dealCost) : d) + '</td>' +
+        '<td class="fin-num">' + (p.budget30 ? fmt$(p.budget30) : d) + '</td>' +
+        '<td class="fin-num">' + fmtH(p.hours) + '</td>' +
+        '<td class="fin-num fin-bold">' + fmt$(p.cost) + '</td>' +
+        '<td class="fin-num">' + (p.totalMargin !== null ? fmtPct(p.totalMargin) : d) + '</td>' +
+        '<td class="fin-num ' + pmCls + '">' + (p.profitMargin !== null ? fmtPct(p.profitMargin) : '—') + '</td>' +
+        '<td class="fin-num ' + profitCls + '">' + (p.profit !== null ? fmt$(p.profit) : '—') + '</td>' +
+        '<td class="fin-num">' + (p.assets || d) + '</td>' +
+        '<td class="fin-num">' + (p.assetCost !== null ? fmt$(p.assetCost) : d) + '</td>' +
+      '</tr>';
+    });
+  });
+
+  html += '<tr class="fin-total"><td>Total (' + totalCount + ')</td>' +
     '<td class="fin-num">' + fmt$(totalDeal) + '</td><td class="fin-num">' + fmt$(totalBudget) + '</td>' +
     '<td class="fin-num">' + fmtH(totalH) + '</td><td class="fin-num">' + fmt$(totalC) + '</td>' +
     '<td></td><td></td><td class="fin-num ' + (totalProfit >= 0 ? 'fin-pos' : 'fin-neg') + '">' + fmt$(totalProfit) + '</td><td></td><td></td></tr>';
@@ -417,14 +467,15 @@ function renderBudgets() {
 
   var kpi = document.getElementById('finKpis');
   if (kpi) {
-    var withDeal = projRows.filter(function(p){return p.dealCost > 0;});
+    var allRows = projRows;
+    var withDeal = allRows.filter(function(p){return p.dealCost > 0;});
     var overBudget = withDeal.filter(function(p){return p.profit !== null && p.profit < 0;}).length;
     kpi.innerHTML =
       '<div class="fin-kpi"><div class="fin-kpi-label">Total Deal Value</div><div class="fin-kpi-value" style="color:var(--accent)">' + fmt$(totalDeal) + '</div></div>' +
       '<div class="fin-kpi"><div class="fin-kpi-label">Total Booking Cost</div><div class="fin-kpi-value">' + fmt$(totalC) + '</div></div>' +
       '<div class="fin-kpi"><div class="fin-kpi-label">Net Profit (30%)</div><div class="fin-kpi-value" style="color:' + (totalProfit >= 0 ? 'var(--success)' : 'var(--danger)') + '">' + fmt$(totalProfit) + '</div></div>' +
       '<div class="fin-kpi"><div class="fin-kpi-label">Over Budget</div><div class="fin-kpi-value" style="color:' + (overBudget ? 'var(--danger)' : 'var(--success)') + '">' + overBudget + '/' + withDeal.length + '</div></div>' +
-      '<div class="fin-kpi"><div class="fin-kpi-label">Total Projects</div><div class="fin-kpi-value">' + projRows.length + '</div></div>';
+      '<div class="fin-kpi"><div class="fin-kpi-label">Total Projects</div><div class="fin-kpi-value">' + totalCount + '</div></div>';
   }
 }
 
