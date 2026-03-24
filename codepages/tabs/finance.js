@@ -401,15 +401,16 @@ function renderBudgets() {
 
     var budget30 = dealCost * 0.30;
     var totalMargin = dealCost > 0 ? (bp.cost / dealCost * 100) : null;
-    var profitMargin = budget30 > 0 ? ((budget30 - bp.cost) / budget30 * -100) : null;
+    var profitMargin = budget30 > 0 ? ((budget30 - bp.cost) / budget30 * 100) : null;
     var profit = budget30 > 0 ? (budget30 - bp.cost) : null;
     var assetCost = assets > 0 ? (bp.cost / assets) : null;
 
+    // positive margin = under budget (profitable), negative = over budget
     var dotColor = '#7f8c8d';
     if (profitMargin !== null) {
-      if (profitMargin > -20) dotColor = '#27ae60';
-      else if (profitMargin > -50) dotColor = '#f39c12';
-      else if (profitMargin > -80) dotColor = '#e67e22';
+      if (profitMargin >= 0) dotColor = '#27ae60';
+      else if (profitMargin >= -20) dotColor = '#f39c12';
+      else if (profitMargin >= -50) dotColor = '#e67e22';
       else dotColor = '#e74c3c';
     }
 
@@ -483,7 +484,7 @@ function renderBudgets() {
       totalDeal += p.dealCost; totalBudget += p.budget30;
       if (p.profit !== null) totalProfit += p.profit;
 
-      var pmCls = p.profitMargin !== null ? (p.profitMargin <= 0 ? 'fin-pos' : 'fin-neg') : 'fin-dim';
+      var pmCls = p.profitMargin !== null ? (p.profitMargin >= 0 ? 'fin-pos' : 'fin-neg') : 'fin-dim';
       var profitCls = p.profit !== null ? (p.profit >= 0 ? 'fin-pos' : 'fin-neg') : 'fin-dim';
 
       html += '<tr data-fin-bpod="' + escapeHtml(pod) + '"' + (collapsed ? ' style="display:none"' : '') + '>' +
