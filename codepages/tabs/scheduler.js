@@ -558,11 +558,22 @@ async function onDragEnd() {
 function onTimelineClick(event, personTdId) {
   if (_dragJustFinished) { _dragJustFinished=false; return; }
   if (event.target.closest('.gantt-bar')) return;
+  if (event.target.closest('.vacation-bar')) return;
   var cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-w'));
   var rect = event.currentTarget.getBoundingClientRect();
   var x = event.clientX - rect.left;
   var dayOffset = Math.floor(x / cellW);
   var clickedDate = formatDate(addDays(viewStart, dayOffset));
+
+  // Check if person is on vacation on this date
+  var onVacation = sVacations.some(function(v) {
+    return String(v.personKey) === String(personTdId) && v.start <= clickedDate && v.end >= clickedDate;
+  });
+  if (onVacation) {
+    showToast('Cannot book — this person is on vacation on ' + clickedDate, 'warning');
+    return;
+  }
+
   openNewAssignment(personTdId, clickedDate);
 }
 
