@@ -16,9 +16,6 @@ var fArtistsLoadedAt = 0;
 var fArtistsLoadedRange = '';
 var fBudgetsLoadedAt = 0;
 var fBudgetsLoadedRange = '';
-// Scope is expensive — cache independently for 15 min
-// When a QB summary field exists on Projects (totalDealValue), set this permanently
-var fScopeLoadedAt = 0;
 // Set FIELD.PROJECTS.totalDealValue here once the summary field is created in QB.
 // That field returns sum(scope.totalValue) per project directly on the project row.
 // When set, loadBudgetsData will use it instead of querying the scope table at all.
@@ -114,58 +111,66 @@ async function loadArtistsData() {
   fArtistsLoadedAt = Date.now();
 }
 
-// ─── PROJECT BUDGETS LOADER (people + projects + bookings + scope) ─
+// ─── PROJECT BUDGETS LOADER (people + projects + bookings, then targeted scope) ─
 async function loadBudgetsData() {
   var dateRange = getDateFilterRange('fin');
 
-  // If summary field exists on Projects, scope query is not needed at all
-  var scopePromise;
-  if (SUMMARY_FIELD_ID) {
-    scopePromise = Promise.resolve(null); // dealt with via project field
-  } else if (Date.now() - fScopeLoadedAt < 900000) {
-    scopePromise = Promise.resolve(null); // use cached fScopeByDeal (15 min TTL)
-  } else {
-    scopePromise = qbQueryAll(TABLES.scope,
-      [FIELD.SCOPE.id, FIELD.SCOPE.totalValue, FIELD.SCOPE.projectRef],
-      null);
-  }
-
-  // All queries fire simultaneously
-  var results = await Promise.all([
+  // Phase 1: fast queries in parallel — no scope yet
+  var phase1 = await Promise.all([
     getCachedPeople(),
     getCachedProjects(false),
     qbQuery(TABLES.assignments,
       [FIELD.ASSIGN.id, FIELD.ASSIGN.person, FIELD.ASSIGN.personName,
        FIELD.ASSIGN.personPod, FIELD.ASSIGN.projectName, FIELD.ASSIGN.hours],
       getBookingWhere(dateRange),
-      [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 10000),
-    scopePromise
+      [{fieldId: FIELD.ASSIGN.personName, order: 'ASC'}], 10000)
   ]);
+  fPeople = phase1[0];
+  fProjects = phase1[1];
+  fBookings = mapBookings(phase1[2]);
 
-  fPeople = results[0];
-  fProjects = results[1];
-  fBookings = mapBookings(results[2]);
+  // Phase 2: scope — targeted to only projects that appear in bookings
+  if (SUMMARY_FIELD_ID) {
+    // Pull totals directly from project row (no scope query needed)
+    fScopeByDeal = {};
+    fProjects.forEach(function(p) {
+      if (p.deal && p.totalDealValue) {
+        fScopeByDeal[String(p.deal)] = {totalValue: p.totalDealValue, assets: p.visualAssets || 0};
+      }
+    });
+  } else {
+    // Build the set of deal IDs that actually appear in bookings
+    var bookedNames = new Set(fBookings.map(function(b) { return b.project; }));
+    var relevantDeals = []; var seen = new Set();
+    fProjects.forEach(function(p) {
+      if (p.deal && bookedNames.has(p.name)) {
+        var key = String(p.deal);
+        if (!seen.has(key)) { seen.add(key); relevantDeals.push(p.deal); }
+      }
+    });
 
-  var scopeRows = results[3];
-  if (scopeRows !== null) {
-    // Aggregate scope totals by deal/project reference
+    var scopeRows;
+    if (relevantDeals.length === 0) {
+      scopeRows = [];
+    } else if (relevantDeals.length > 150) {
+      // Fallback: too many deals to filter efficiently, fetch all
+      scopeRows = await qbQueryAll(TABLES.scope,
+        [FIELD.SCOPE.id, FIELD.SCOPE.totalValue, FIELD.SCOPE.projectRef], null);
+    } else {
+      // Targeted: only the scope rows for projects with bookings in this date range
+      var scopeWhere = relevantDeals.map(function(id) {
+        return '{' + FIELD.SCOPE.projectRef + '.EX.' + id + '}';
+      }).join('OR');
+      scopeRows = await qbQueryAll(TABLES.scope,
+        [FIELD.SCOPE.id, FIELD.SCOPE.totalValue, FIELD.SCOPE.projectRef], scopeWhere);
+    }
+
     fScopeByDeal = {};
     scopeRows.forEach(function(r) {
       var dealId = String(fv(r, FIELD.SCOPE.projectRef));
       if (!fScopeByDeal[dealId]) fScopeByDeal[dealId] = {totalValue: 0, assets: 0};
       fScopeByDeal[dealId].totalValue += parseFloat(fv(r, FIELD.SCOPE.totalValue)) || 0;
       fScopeByDeal[dealId].assets += 1;
-    });
-    fScopeLoadedAt = Date.now();
-  }
-
-  // If summary field is set, override fScopeByDeal from project rows
-  if (SUMMARY_FIELD_ID) {
-    fScopeByDeal = {};
-    fProjects.forEach(function(p) {
-      if (p.deal && p.totalDealValue) {
-        fScopeByDeal[String(p.deal)] = {totalValue: p.totalDealValue, assets: p.visualAssets || 0};
-      }
     });
   }
 
