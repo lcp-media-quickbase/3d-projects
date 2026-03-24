@@ -522,7 +522,7 @@ body {
 /* ── CONTENT AREA ── */
 .page-body {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   padding: 20px;
 }
 .page-body-flush {

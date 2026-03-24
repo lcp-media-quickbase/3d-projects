@@ -179,45 +179,16 @@ window.buildDashboard = buildDashboard;
     });
   }
 
-  // ALWAYS resolve user and role before rendering tabs
-  async function _finishBuild() {
-    // Hide sidebar until role is confirmed
-    var sidebar = document.querySelector('.sidebar');
-    if (sidebar) sidebar.style.visibility = 'hidden';
+  // Determine starting tab from URL hash or default
+  var hash = window.location.hash.replace('#', '');
+  var visible = getVisibleTabs();
+  var startTab = (hash && _tabs[hash]) ? hash : (visible.length ? visible[0].id : null);
+  if (startTab) switchTab(startTab);
 
-    // Resolve user identity and role
-    if (typeof resolveCurrentUser === 'function') await resolveCurrentUser();
-
-    // Now update nav visibility based on confirmed role
-    var visibleIds = getVisibleTabs().map(function(t){return t.id;});
-    document.querySelectorAll('.nav-item[data-tab]').forEach(function(el) {
-      el.style.display = visibleIds.indexOf(el.dataset.tab) !== -1 ? '' : 'none';
-    });
-
-    // Show sidebar
-    if (sidebar) sidebar.style.visibility = '';
-
-    // Switch to starting tab
-    var hash = window.location.hash.replace('#', '');
-    var visible = getVisibleTabs();
-    var startTab = (hash && _tabs[hash] && visibleIds.indexOf(hash) !== -1) ? hash : (visible.length ? visible[0].id : null);
-    if (startTab) {
-      // Force layout recalculation after async role resolution
-      await new Promise(function(r) { requestAnimationFrame(r); });
-      switchTab(startTab);
-      // Double-force: toggle display to trigger reflow
-      var activeTab = document.getElementById('tab-' + startTab);
-      if (activeTab) {
-        activeTab.style.display = 'none';
-        void activeTab.offsetHeight; // force reflow
-        activeTab.style.display = 'flex';
-      }
-    }
-
-    if (typeof loadQBUsers === 'function') loadQBUsers();
-    if (typeof renderTestBanner === 'function') renderTestBanner();
-  }
-  _finishBuild();
+  // Resolve user identity in background — role correction hides nav items after
+  if (typeof resolveCurrentUser === 'function') resolveCurrentUser();
+  if (typeof loadQBUsers === 'function') loadQBUsers();
+  if (typeof renderTestBanner === 'function') renderTestBanner();
 
   // Handle back/forward browser navigation
   window.addEventListener('hashchange', function() {
