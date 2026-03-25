@@ -14,6 +14,7 @@ var QB_ROLE_GROUPS = {
   'Artist':     '125909'
 };
 var ROLE_OPTIONS = ['Leadership', 'Senior', 'Artist'];
+var ROLE_TO_QB_ID = { 'Leadership': 13, 'Senior': 14, 'Artist': 16 };
 
 function escXml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -287,18 +288,39 @@ async function savePerson(id, oldRole) {
     }
     await qbUpsert(TABLES.people,[record]);
 
-    // Update QB group if role changed
+    // Update QB role ID and group when role changes
     if (oldRole !== newRole) {
+      var newQbRoleId = ROLE_TO_QB_ID[newRole] || 16;
+      // Write qbRoleId to People table
+      await qbUpsert(TABLES.people, [{
+        [FIELD.PEOPLE.id]: {value: id},
+        [FIELD.PEOPLE.qbRoleId]: {value: newQbRoleId}
+      }]);
+
       var oldGid = QB_ROLE_GROUPS[oldRole];
       var newGid = QB_ROLE_GROUPS[newRole];
       if (oldGid !== newGid) {
-        // Use cached email to find QB user ID
+        // Use qbUserId from People record (FID 45) — no API lookup needed
         var person = aPeople.find(function(x){return x.id===id;});
-        var email = (person && person.email) || document.getElementById('eEmail').value.trim();
-        var userId = await qbGetUserIdByEmail(email).catch(function(){return null;});
+        var userId = person && person.qbUserId;
+        if (!userId) {
+          // Fallback: try email lookup if no qbUserId stored
+          var email = (person && person.email) || document.getElementById('eEmail').value.trim();
+          userId = await qbGetUserIdByEmail(email).catch(function(){return null;});
+          // Save the discovered userId to People table for next time
+          if (userId) {
+            await qbUpsert(TABLES.people, [{
+              [FIELD.PEOPLE.id]: {value: id},
+              [FIELD.PEOPLE.qbUserId]: {value: userId}
+            }]).catch(function(){});
+          }
+        }
         if (userId) {
           if (oldGid) await qbRemoveFromGroup(oldGid, userId).catch(function(){});
           if (newGid) await qbAddToGroup(newGid, userId).catch(function(){});
+          console.log('[Admin] Group updated for', person ? person.name : id, ':', oldGid, '→', newGid);
+        } else {
+          showToast('Role updated but could not find QB User ID for group assignment', 'warning');
         }
       }
     }
@@ -407,6 +429,13 @@ async function createPerson() {
 
     adminCloseModal();
     if (userId) {
+      // Save QB User ID to People record
+      if (newUserId) {
+        await qbUpsert(TABLES.people, [{
+          [FIELD.PEOPLE.id]: {value: result.metadata.createdRecordIds[0]},
+          [FIELD.PEOPLE.qbUserId]: {value: newUserId}
+        }]).catch(function(){});
+      }
       showToast('Person created — invite sent to '+email,'success');
     } else {
       showToast('Person created — QB invite failed, check manually','warning');
