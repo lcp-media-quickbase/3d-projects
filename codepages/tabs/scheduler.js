@@ -479,6 +479,7 @@ async function saveAssignment() {
     if (!confirm(personName + ' has approved vacation during ' + vacConflicts[0].start + ' to ' + vacConflicts[0].end + '.\n\nCreate booking anyway?')) return;
   }
   var recordId = document.getElementById('fldRecordId').value;
+  var isEdit = !!recordId;
   var record = {};
   record[FIELD.ASSIGN.person] = {value:String(person)};
   record[FIELD.ASSIGN.project] = {value:String(project)};
@@ -486,8 +487,8 @@ async function saveAssignment() {
   record[FIELD.ASSIGN.end] = {value:end};
   record[FIELD.ASSIGN.hours] = {value:parseFloat(document.getElementById('fldHours').value)||8};
   record[FIELD.ASSIGN.desc] = {value:document.getElementById('fldDesc').value};
-  if (recordId) record[FIELD.ASSIGN.tdId] = {value:String(recordId)};
-  var isEdit = !!recordId;
+  // FID 6 (TeamDeck Id) is required — generate unique ID for new bookings
+  record[FIELD.ASSIGN.tdId] = {value: isEdit ? String(recordId) : 'QB-' + Date.now()};
   try {
     await qbUpsert(TABLES.assignments,[record], null, isEdit ? FIELD.ASSIGN.tdId : undefined);
     closeModal();

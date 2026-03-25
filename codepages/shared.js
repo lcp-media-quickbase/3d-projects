@@ -114,7 +114,7 @@ var ICONS = {
   ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   moon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
 };
-var LCP_VERSION = 'v3.44.4';
+var LCP_VERSION = 'v3.44.5';
 console.log('%c[LCP Dashboard] ' + LCP_VERSION, 'color:#68B6E5;font-weight:bold');
 
 // ─── AUTH ──────────────────────────────────────────────────
@@ -319,7 +319,14 @@ async function qbUpsert(tableId, records, fieldsToReturn, mergeFieldId) {
     await _fetchOpts('POST', body, tableId)
   );
   if (!resp.ok) await _handleError(resp, tableId);
-  return resp.json();
+  var result = await resp.json();
+  // Check for line errors (QB returns 200 but with errors in metadata)
+  if (result.metadata && result.metadata.lineErrors) {
+    var errs = result.metadata.lineErrors;
+    var errMsgs = Object.values(errs).flat();
+    if (errMsgs.length) throw new Error(errMsgs.join('; '));
+  }
+  return result;
 }
 
 async function qbDelete(tableId, where) {
