@@ -286,7 +286,7 @@ async function savePerson(id, oldRole) {
       var pod = pods.find(function(p){return p.name === podName;});
       if (pod && pod.tdId) record[21] = {value: pod.tdId};
     }
-    await qbUpsert(TABLES.people,[record]);
+    await qbUpsert(TABLES.people,[record], null, FIELD.PEOPLE.id);
 
     // Update QB role ID and group when role changes
     if (oldRole !== newRole) {
@@ -295,7 +295,7 @@ async function savePerson(id, oldRole) {
       await qbUpsert(TABLES.people, [{
         [FIELD.PEOPLE.id]: {value: id},
         [FIELD.PEOPLE.qbRoleId]: {value: newQbRoleId}
-      }]);
+      }], null, FIELD.PEOPLE.id);
 
       var oldGid = QB_ROLE_GROUPS[oldRole];
       var newGid = QB_ROLE_GROUPS[newRole];
@@ -312,7 +312,7 @@ async function savePerson(id, oldRole) {
             await qbUpsert(TABLES.people, [{
               [FIELD.PEOPLE.id]: {value: id},
               [FIELD.PEOPLE.qbUserId]: {value: userId}
-            }]).catch(function(){});
+            }], null, FIELD.PEOPLE.id).catch(function(){});
           }
         }
         if (userId) {
@@ -337,7 +337,7 @@ async function toggleActive(id) {
   var p=aPeople.find(function(x){return x.id===id;});
   if (!p) return;
   try {
-    await qbUpsert(TABLES.people,[{[FIELD.PEOPLE.id]:{value:id},[FIELD.PEOPLE.active]:{value:!p.active}}]);
+    await qbUpsert(TABLES.people,[{[FIELD.PEOPLE.id]:{value:id},[FIELD.PEOPLE.active]:{value:!p.active}}], null, FIELD.PEOPLE.id);
     showToast(p.active?'Deactivated':'Activated','success');
     invalidateCache('people');
     aPeople = await getCachedPeople(true);
@@ -416,7 +416,7 @@ async function createPerson() {
       var pod = pods.find(function(p){return p.name === podName;});
       if (pod && pod.tdId) record[21] = {value: pod.tdId};
     }
-    await qbUpsert(TABLES.people,[record]);
+    await qbUpsert(TABLES.people,[record], null, FIELD.PEOPLE.id);
 
     // Provision QB account (sends invite email) then add to group
     var parts = name.split(/\s+/);
@@ -434,7 +434,7 @@ async function createPerson() {
         await qbUpsert(TABLES.people, [{
           [FIELD.PEOPLE.id]: {value: result.metadata.createdRecordIds[0]},
           [FIELD.PEOPLE.qbUserId]: {value: newUserId}
-        }]).catch(function(){});
+        }], null, FIELD.PEOPLE.id).catch(function(){});
       }
       showToast('Person created — invite sent to '+email,'success');
     } else {
@@ -506,9 +506,9 @@ window.adminMovePerson = async function(personId, newPodName, selectEl) {
 
   try {
     await qbUpsert(TABLES.people, [{
-      3: {value: personId},
+      [FIELD.PEOPLE.id]: {value: personId},
       21: {value: targetPod.tdId}
-    }], 3);
+    }], null, FIELD.PEOPLE.id);
     showToast((person ? person.name : 'Person') + ' moved to ' + newPodName, 'success');
     // Refresh data
     invalidateCache('people');
