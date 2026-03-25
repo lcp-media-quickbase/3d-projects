@@ -522,7 +522,7 @@ window.adminMovePerson = async function(personId, newPodName, selectEl) {
 
 registerTab('admin', {
   icon: '⚙️', label: 'Admin',
-  roles: [ROLE.ADMIN, ROLE.ADMIN_COPY],
+  roles: [ROLE.ADMIN, ROLE.ADMIN_COPY, ROLE.LEADERSHIP],
   onInit: async function() {
     var style=document.createElement('style'); style.textContent=adminCSS; document.head.appendChild(style);
     document.getElementById('tab-admin').innerHTML = buildHTML();
